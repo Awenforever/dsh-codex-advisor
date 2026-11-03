@@ -86,6 +86,17 @@ node test/harness/host-level.mjs
 
 The offline tests use `test/fake-app-server.mjs`, which speaks the subset of the app-server protocol used here and persists threads across process restarts.
 
+## Status and known residuals
+
+Development and verification are complete through the fake-Codex path as of 2026-11-03; **production is not deployed**. Residual IDs match `docs/RELEASE_ACCEPTANCE.md` and the CollabCenter project page.
+
+| ID | State | Detail |
+|---|---|---|
+| R1 | open | Real Codex semantic turn (recall, tools, interrupt, approvals) is pending the ChatGPT weekly quota reset (2026-11-04 14:36 +0800). |
+| R2 | closed | The isolated-profile e2e used a process-scoped USTC key injection (never persisted); S1–S4 passed against the fake app-server. |
+| R3 | open (verification gap) | On `win11-test` the bundle is installed and the desktop-profile composition is validated via a copy (`vm-desktop-copy`); launching the DSH app in the Administrator console is pending VMware guest credentials. VMware guest operations reject the blank-password `king` account, and the Administrator credential is not available. |
+| R4 | open | Installing into the production `desktop` profile and restarting DSH require explicit operator approval (M5). |
+
 ## Compatibility
 
 - DSH: developed against `0.2.1-rc.5` (Host APIs: `tools.register`, `subprocess.spawn`, `systemPrompt.section`, `workingDirectory.ensure`).

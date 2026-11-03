@@ -88,6 +88,15 @@ Host `DESKTOP-GB7NLMT` (100.108.63.25), DSH 0.2.1-rc.5, ssh user `king` (elevate
 | S3 final acceptance | PASS (model used the accumulated thread across three calls) | blocked (quota) |
 | S4 DSH restart / recovery | PASS (model-driven `--session-id` resume in a new Host: same thread, `history=1`; Windows restart harness; fail-closed digest on thread loss) | DSH activation PASS; real Codex blocked |
 
+## Known residuals (R1–R4)
+
+| ID | State | Detail |
+|---|---|---|
+| R1 | open | Real Codex semantic turn (turn-2 recall, tool use, `turn/interrupt`, auto-declined approval) is pending the account weekly quota reset at `2026-11-04T06:36:11Z` (14:36 +0800). |
+| R2 | closed | Isolated-profile model-driven e2e ran with `USTC1_API_KEY` injected into the headless process environment only (never written to disk/profile/logs); S1–S4 passed against the fake app-server. |
+| R3 | open (verification gap) | `win11-test`: bundle installed in the test instance's desktop profile; the exact desktop composition was validated via a profile copy (`vm-desktop-copy`): `--dump-config` contains the `codex-advisor` row and boot activated the plugin (pid 8300). Launching the DSH app in the Administrator console is pending guest credentials: `vmrun` rejects the blank-password `king` account (`The guest OS does not support empty passwords`), the Administrator guest password is unavailable, and no new accounts are allowed. |
+| R4 | open | Production `desktop` profile install and DSH restart require explicit operator approval (M5); backup/rollback steps are listed below. |
+
 ## G0 note
 
 The structural half of G0 passed; the semantic half (real model turn recalling the previous token, read-only tool use, interrupt, approval) is deferred until the Codex weekly quota resets or another credential decision is made. Production rollout must not proceed before this is completed.
