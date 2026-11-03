@@ -94,8 +94,10 @@ Development and verification are complete through the fake-Codex path as of 2026
 |---|---|---|
 | R1 | open | Real Codex semantic turn (recall, tools, interrupt, approvals) is pending the ChatGPT weekly quota reset (2026-11-04 14:36 +0800). |
 | R2 | closed | The isolated-profile e2e used a process-scoped USTC key injection (never persisted); S1–S4 passed against the fake app-server. |
-| R3 | open (verification gap) | On `win11-test` the bundle is installed and the desktop-profile composition is validated via a copy (`vm-desktop-copy`); launching the DSH app in the Administrator console is pending VMware guest credentials. VMware guest operations reject the blank-password `king` account, and the Administrator credential is not available. |
+| R3 | closed | `win11-test`: bundle installed; desktop composition and real app launch verified. The app runs as `Administrator` in `SessionId=1` via an interactive scheduled task (`New-ScheduledTaskPrincipal -LogonType Interactive`), plugin `activate` pid 5800, CDP `http://127.0.0.1:9222/json` HTTP 200. |
 | R4 | open | Installing into the production `desktop` profile and restarting DSH require explicit operator approval (M5). |
+
+Windows desktop verification uses a scheduled task with `-LogonType Interactive` plus CDP on port 9222; see `docs/RELEASE_ACCEPTANCE.md` L4.
 
 ## Compatibility
 

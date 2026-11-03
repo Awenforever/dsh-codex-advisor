@@ -76,7 +76,7 @@ Host `DESKTOP-GB7NLMT` (100.108.63.25), DSH 0.2.1-rc.5, ssh user `king` (elevate
 | L2 harness on Windows | PASS | `L2 PASS {tools:[…5], threadId:thr-…}` via `DeepSeek Harness.exe` as Node |
 | restart harness on Windows | PASS | `RESTART PASS {…}` same `thread_id` after dispose + re-apply |
 | desktop profile composition (copy `vm-desktop-copy`) | PASS | `--dump-config` contains the `codex-advisor` row; booting the copy activated the plugin (`activate` pid 8300) before the app rejected the `headless` arguments (the copied profile uses the desktop app) |
-| actual DSH app launch in the Administrator console | **PENDING** | `vmrun` guest operations reject the blank-password `king` account (`The guest OS does not support empty passwords`); the Administrator guest password is not available and no new accounts are allowed by the task constraints |
+| actual DSH app launch in the Administrator console | PASS (2026-11-03 12:09 +0800) | interactive scheduled task as `Administrator` (`New-ScheduledTaskPrincipal -LogonType Interactive`), process `SessionId=1`, plugin `activate` pid 5800, CDP `http://127.0.0.1:9222/json` HTTP 200, page `dsh-app://app/` |
 | real Codex on the VM | not planned | decision: VM uses the fake app-server; real Codex e2e stays on invictus |
 
 ## Four required scenarios
@@ -86,7 +86,7 @@ Host `DESKTOP-GB7NLMT` (100.108.63.25), DSH 0.2.1-rc.5, ssh user `king` (elevate
 | S1 same thread two rounds | PASS (manager test; Windows L2; real DSH model: same `thread_id`, history `0 → 1 → 2`) | blocked (quota) |
 | S2 mid-course change | PASS (same-thread conversation; fake history increments; model observed prior turns) | blocked (quota) |
 | S3 final acceptance | PASS (model used the accumulated thread across three calls) | blocked (quota) |
-| S4 DSH restart / recovery | PASS (model-driven `--session-id` resume in a new Host: same thread, `history=1`; Windows restart harness; fail-closed digest on thread loss) | DSH activation PASS; real Codex blocked |
+| S4 DSH restart / recovery | PASS (model-driven `--session-id` resume in a new Host: same thread, `history=1`; Windows restart harness; fail-closed digest on thread loss) | DSH desktop activation PASS; real Codex blocked |
 
 ## Known residuals (R1–R4)
 
@@ -94,7 +94,7 @@ Host `DESKTOP-GB7NLMT` (100.108.63.25), DSH 0.2.1-rc.5, ssh user `king` (elevate
 |---|---|---|
 | R1 | open | Real Codex semantic turn (turn-2 recall, tool use, `turn/interrupt`, auto-declined approval) is pending the account weekly quota reset at `2026-11-04T06:36:11Z` (14:36 +0800). |
 | R2 | closed | Isolated-profile model-driven e2e ran with `USTC1_API_KEY` injected into the headless process environment only (never written to disk/profile/logs); S1–S4 passed against the fake app-server. |
-| R3 | open (verification gap) | `win11-test`: bundle installed in the test instance's desktop profile; the exact desktop composition was validated via a profile copy (`vm-desktop-copy`): `--dump-config` contains the `codex-advisor` row and boot activated the plugin (pid 8300). Launching the DSH app in the Administrator console is pending guest credentials: `vmrun` rejects the blank-password `king` account (`The guest OS does not support empty passwords`), the Administrator guest password is unavailable, and no new accounts are allowed. |
+| R3 | closed (2026-11-03 12:09 +0800) | `win11-test`: bundle installed; desktop composition and real app launch verified. The app runs as `Administrator` in `SessionId=1` via an interactive scheduled task (`New-ScheduledTaskPrincipal -LogonType Interactive`), plugin `activate` pid 5800, CDP `http://127.0.0.1:9222/json` HTTP 200, page `dsh-app://app/`. The VMware blank-password boundary is irrelevant to this path. |
 | R4 | open | Production `desktop` profile install and DSH restart require explicit operator approval (M5); backup/rollback steps are listed below. |
 
 ## G0 note
