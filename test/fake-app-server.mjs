@@ -24,7 +24,7 @@ const QUOTA_RESET = Number(process.env.FAKE_CODEX_QUOTA_RESET || Math.floor(Date
 let state = { threads: {}, locks: {}, requests: [] };
 if (STATE_PATH && existsSync(STATE_PATH)) {
   try {
-    const parsed = JSON.parse(readFileSync(STATE_PATH, 'utf8'));
+    const parsed = JSON.parse(readFileSync(STATE_PATH, 'utf8').replace(/^\uFEFF/, ''));
     state = { threads: {}, locks: {}, requests: [], ...parsed };
   } catch { /* start fresh */ }
 }
@@ -32,6 +32,15 @@ if (STATE_PATH && existsSync(STATE_PATH)) {
 const save = () => {
   if (!STATE_PATH) return;
   try { writeFileSync(STATE_PATH, JSON.stringify(state, null, 2)); } catch { /* ignore */ }
+};
+
+const isAlive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return err?.code === 'EPERM';
+  }
 };
 
 const send = (message) => {
@@ -195,7 +204,9 @@ rl.on('line', (line) => {
       const thread = state.threads[params.threadId];
       if (!thread) { replyError(id, -32600, `no rollout found for thread id ${params.threadId}`); return; }
       const holder = state.locks[params.threadId];
-      if (holder && holder !== process.pid) { replyError(id, -32600, `thread ${params.threadId} already has an active writer`); return; }
+      const holderAlive = holder && holder !== process.pid && isAlive(holder);
+      if (holderAlive) { replyError(id, -32600, `thread ${params.threadId} already has an active writer`); return; }
+      if (holder && !isAlive(holder)) delete state.locks[params.threadId];
       state.locks[params.threadId] = process.pid;
       save();
       reply(id, { thread });

@@ -5,6 +5,10 @@
   "private": true,
   "type": "module",
   "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Awenforever/dsh-codex-advisor.git"
+  },
   "exports": {
     ".": "./index.js",
     "./locale/*.json": "./locale/*.json",
@@ -17,7 +21,8 @@
     "locale/*.json",
     "icon.svg",
     "README.md",
-    "docs/*.md"
+    "docs/*.md",
+    "LICENSE"
   ],
   "dsh": {
     "bundle": {

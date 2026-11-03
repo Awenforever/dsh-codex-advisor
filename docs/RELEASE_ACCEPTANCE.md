@@ -47,15 +47,21 @@ node test/harness/host-level.mjs
 
 Result: **PASS**. The plugin's `apply` was invoked with a stub Cordis context; five tools registered; `codex_ask` completed two turns on one fake thread; `codex_status` reported `state=ready`; `codex_reset` produced a new thread; dispose closed the child.
 
-## L3 — real DSH composition and activation (isolated profile)
+## L3 — real DSH composition, activation and model-driven runs (isolated profile)
 
 | Check | Result | Evidence |
 |---|---|---|
 | profile created from headless template | PASS | `~/.dsh/profiles/advisor-test` |
 | bundle installed and auto-added to `dsh.profile.bundles` | PASS | `dsh plugin --profile advisor-test add <path>` |
 | composed profile contains `codex-advisor` row | PASS | `dsh --profile advisor-test --dump-config` |
-| plugin activates in a real DSH Host | PASS | `.scratch/advisor-test-state/events.ndjson` → `{"event":"activate","pid":36944,…}` |
-| model-driven four scenarios | **BLOCKED** | headless boot: `MISSING_CREDENTIAL: llm-deepseek … deepseek-official` (no model credential in the isolated profile) |
+| plugin activates in a real DSH Host | PASS | `.scratch/advisor-test-state*/events.ndjson` → `{"event":"activate",…}` |
+| model credential | PASS | `USTC1_API_KEY` injected into the headless process environment only (never written to disk, profile or logs) |
+| S1–S3 model-driven, fake Codex | PASS | 3 `codex_ask` calls in one session: same thread `thr-950c779e-1950-4a32-a36f-465e46048042`, history `0 → 1 → 2`, three distinct turn ids; session transcript ends with `turn/end completed` |
+| S4 restart, same DSH session | PASS | `headless --session-id session-3cbef3cc-cc72-4c65-acfc-d4e9a1e6dccc` in a new Host process: same thread `thr-1076471a-d28e-4331-8d50-31ee0d4bf5ab`, `history=1` |
+| fail-closed recovery | PASS (fixture incident) | when the fake fixture state lost a bound thread, the bridge started a new thread, prepended the digest, returned `recovered:"new-thread"` and the notice; no crash |
+| headless exit | PASS | `idle-recycle` + `client:exited` after the turn (the app-server child no longer keeps the Host alive) |
+
+The S4 thread id differs from S1–S3 because a manual test-fixture edit (a BOM-prefixed JSON rewrite) made the fake app-server start with an empty state; the bridge's fail-closed recovery path handled it as designed. A clean retry on the recovered thread then resumed the same thread across a new Host process.
 
 ## L4 — win11-test
 
@@ -74,12 +80,12 @@ Host `DESKTOP-GB7NLMT` (100.108.63.25), DSH 0.2.1-rc.5, ssh user `king` (elevate
 
 ## Four required scenarios
 
-| Scenario | Offline / fake | Real DSH + real Codex |
+| Scenario | Offline / Windows / model-driven (fake Codex) | Real DSH + real Codex |
 |---|---|---|
-| S1 same thread two rounds | PASS (manager test: same `thread_id`, `history=1`; Windows L2 two asks) | blocked (quota) |
-| S2 mid-course change | PASS (same-thread conversation; fake counts history) | blocked (quota) |
-| S3 final acceptance | PASS (digest/answer retention; same thread) | blocked (quota) |
-| S4 DSH restart / recovery | PASS (manager restart + Windows restart harness; missing thread fails closed with digest) | DSH activation PASS; model-driven blocked |
+| S1 same thread two rounds | PASS (manager test; Windows L2; real DSH model: same `thread_id`, history `0 → 1 → 2`) | blocked (quota) |
+| S2 mid-course change | PASS (same-thread conversation; fake history increments; model observed prior turns) | blocked (quota) |
+| S3 final acceptance | PASS (model used the accumulated thread across three calls) | blocked (quota) |
+| S4 DSH restart / recovery | PASS (model-driven `--session-id` resume in a new Host: same thread, `history=1`; Windows restart harness; fail-closed digest on thread loss) | DSH activation PASS; real Codex blocked |
 
 ## G0 note
 
