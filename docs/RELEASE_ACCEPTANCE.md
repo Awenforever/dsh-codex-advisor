@@ -75,7 +75,8 @@ Host `DESKTOP-GB7NLMT` (100.108.63.25), DSH 0.2.1-rc.5, ssh user `king` (elevate
 | Windows Host activation (isolated headless profile, same rc.5) | PASS | `C:\Users\king\.dsh\codex-advisor\events.ndjson` → `{"event":"activate","pid":328,…}` |
 | L2 harness on Windows | PASS | `L2 PASS {tools:[…5], threadId:thr-…}` via `DeepSeek Harness.exe` as Node |
 | restart harness on Windows | PASS | `RESTART PASS {…}` same `thread_id` after dispose + re-apply |
-| desktop profile activation in the DSH app | **PENDING** | the app was not running on the VM; next launch must show the `activate` event and the five tools |
+| desktop profile composition (copy `vm-desktop-copy`) | PASS | `--dump-config` contains the `codex-advisor` row; booting the copy activated the plugin (`activate` pid 8300) before the app rejected the `headless` arguments (the copied profile uses the desktop app) |
+| actual DSH app launch in the Administrator console | **PENDING** | `vmrun` guest operations reject the blank-password `king` account (`The guest OS does not support empty passwords`); the Administrator guest password is not available and no new accounts are allowed by the task constraints |
 | real Codex on the VM | not planned | decision: VM uses the fake app-server; real Codex e2e stays on invictus |
 
 ## Four required scenarios
