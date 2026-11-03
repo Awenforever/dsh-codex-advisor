@@ -1,0 +1,6 @@
+# dsh-codex-advisor bundle layer: one Host row, no dependencies.
+- insert:
+    - id: codex-advisor
+      name: dsh-codex-advisor
+      config:
+        enabled: true
