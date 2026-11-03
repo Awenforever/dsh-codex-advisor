@@ -1,0 +1,4 @@
+.scratch/
+spike/runs/
+node_modules/
+*.log

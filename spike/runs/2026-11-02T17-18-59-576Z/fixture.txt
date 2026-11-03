@@ -1,2 +1,0 @@
-FIXTURE-LINE-OK
-second line
