@@ -19,7 +19,7 @@ The advisor thread is bound to the DSH `SessionId`, so reopening the same DSH se
 
 ## Provenance
 
-Every `codex_*` result carries a `source` object:
+Every `codex_*` result, including a failed result, carries a `source` object:
 
 ```json
 {"kind":"codex-advisor","transport":"codex-app-server","plugin":"dsh-codex-advisor","version":"0.3.0","model":"gpt-6-luna","effort":"max"}
@@ -115,11 +115,12 @@ Each tool result carries `code`, `message`, and a short `hint`.
 
 ```powershell
 node --check index.js
-node --test --test-force-exit test/jsonrpc.test.mjs test/store.test.mjs test/codex.test.mjs test/manager.test.mjs test/manifest.test.mjs
+node --test --test-force-exit test/jsonrpc.test.mjs test/store.test.mjs test/codex.test.mjs test/manager.test.mjs test/manifest.test.mjs test/update.test.mjs
 node test/harness/host-level.mjs
+node test/harness/failure-level.mjs
 ```
 
-The offline tests use `test/fake-app-server.mjs`, which speaks the subset of the app-server protocol used here and persists threads across process restarts.
+The offline tests use `test/fake-app-server.mjs`, which speaks the subset of the app-server protocol used here and persists threads across process restarts. `failure-level.mjs` runs the fake server in `turn-fail` mode and asserts that the failed result, `snapshot.last_failure`, and `history.turns[].error` all expose the failure.
 
 ## Status and known residuals
 
