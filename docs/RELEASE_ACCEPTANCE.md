@@ -79,6 +79,20 @@ Host `DESKTOP-GB7NLMT` (100.108.63.25), DSH 0.2.1-rc.5, ssh user `king` (elevate
 | actual DSH app launch in the Administrator console | PASS (2026-11-03 12:09 +0800) | interactive scheduled task as `Administrator` (`New-ScheduledTaskPrincipal -LogonType Interactive`), process `SessionId=1`, plugin `activate` pid 5800, CDP `http://127.0.0.1:9222/json` HTTP 200, page `dsh-app://app/` |
 | real Codex on the VM | not planned | decision: VM uses the fake app-server; real Codex e2e stays on invictus |
 
+## L5 — production desktop (desktop-kfscv8c-1, 2026-11-04)
+
+Host `DESKTOP-KFSCV8C`, user `king_`, DSH `0.2.1-rc.5`, profile `desktop`.
+
+| Check | Result | Evidence |
+|---|---|---|
+| pre-install backup | PASS | `package.json`, `cordis.patch.yml`, `pnpm-lock.yaml` → `.bak-20261104-codex-advisor`; rollback script `C:\Users\king_\.dsh\codex-advisor-rollback.ps1` |
+| install via `plugin_manager` | PASS | `install_bundle` target tag `v0.1.0` tarball; `application=applied`; bundle `dsh-codex-advisor` 0.1.0 `enabled/installed` |
+| tools registered | PASS | Host `Tool.listTools` includes `codex_ask`, `codex_poll`, `codex_cancel`, `codex_status`, `codex_reset` |
+| activation | PASS | `events.ndjson` → `{"event":"activate","pid":9428,...,"t":"2026-11-04T04:03:04.084Z"}` |
+| restart | not needed | package applied live; the running DSH app remained up |
+| real Codex semantic | **PENDING (R1)** | quota reset `2026-11-04T06:36:11Z` (14:36 +0800); G0 semantic half still open |
+| rollback | ready | `plugin_manager remove_bundle` target `dsh-codex-advisor`, or the rollback script |
+
 ## Four required scenarios
 
 | Scenario | Offline / Windows / model-driven (fake Codex) | Real DSH + real Codex |
@@ -95,11 +109,16 @@ Host `DESKTOP-GB7NLMT` (100.108.63.25), DSH 0.2.1-rc.5, ssh user `king` (elevate
 | R1 | open | Real Codex semantic turn (turn-2 recall, tool use, `turn/interrupt`, auto-declined approval) is pending the account weekly quota reset at `2026-11-04T06:36:11Z` (14:36 +0800). |
 | R2 | closed | Isolated-profile model-driven e2e ran with `USTC1_API_KEY` injected into the headless process environment only (never written to disk/profile/logs); S1–S4 passed against the fake app-server. |
 | R3 | closed (2026-11-03 12:09 +0800) | `win11-test`: bundle installed; desktop composition and real app launch verified. The app runs as `Administrator` in `SessionId=1` via an interactive scheduled task (`New-ScheduledTaskPrincipal -LogonType Interactive`), plugin `activate` pid 5800, CDP `http://127.0.0.1:9222/json` HTTP 200, page `dsh-app://app/`. The VMware blank-password boundary is irrelevant to this path. |
-| R4 | open | Production `desktop` profile install and DSH restart require explicit operator approval (M5); backup/rollback steps are listed below. |
+| R4 | closed (2026-11-04 12:03 +0800) | Production `desktop` installed `dsh-codex-advisor` 0.1.0 via `plugin_manager` (tag `v0.1.0`); 5 tools registered, `activate` pid 9428, applied live without restart. Backups and rollback script are in place. R1 remains open. |
 
 ## G0 note
 
-The structural half of G0 passed; the semantic half (real model turn recalling the previous token, read-only tool use, interrupt, approval) is deferred until the Codex weekly quota resets or another credential decision is made. Production rollout must not proceed before this is completed.
+The structural half of G0 passed; the semantic half is pending R1. The production bundle was installed on 2026-11-04 with explicit operator authorization (R4), but **G0 remains open**: do not treat the production advisor as accepted or use it for real advisory work until R1 passes. If R1 fails, remove the bundle with `plugin_manager remove_bundle` or the rollback script.
+
+## Rollback (production desktop)
+
+- `plugin_manager` → `remove_bundle` target `dsh-codex-advisor`.
+- Or run `C:\Users\king_\.dsh\codex-advisor-rollback.ps1`, then restart DeepSeek Harness.
 
 ## Rollback (test profile)
 

@@ -88,14 +88,14 @@ The offline tests use `test/fake-app-server.mjs`, which speaks the subset of the
 
 ## Status and known residuals
 
-Development and verification are complete through the fake-Codex path as of 2026-11-03; **production is not deployed**. Residual IDs match `docs/RELEASE_ACCEPTANCE.md` and the CollabCenter project page.
+Development and verification are complete through the fake-Codex path; the production bundle is installed, while real Codex semantic acceptance is still pending. Residual IDs match `docs/RELEASE_ACCEPTANCE.md` and the CollabCenter project page.
 
 | ID | State | Detail |
 |---|---|---|
 | R1 | open | Real Codex semantic turn (recall, tools, interrupt, approvals) is pending the ChatGPT weekly quota reset (2026-11-04 14:36 +0800). |
 | R2 | closed | The isolated-profile e2e used a process-scoped USTC key injection (never persisted); S1–S4 passed against the fake app-server. |
 | R3 | closed | `win11-test`: bundle installed; desktop composition and real app launch verified. The app runs as `Administrator` in `SessionId=1` via an interactive scheduled task (`New-ScheduledTaskPrincipal -LogonType Interactive`), plugin `activate` pid 5800, CDP `http://127.0.0.1:9222/json` HTTP 200. |
-| R4 | open | Installing into the production `desktop` profile and restarting DSH require explicit operator approval (M5). |
+| R4 | closed (2026-11-04) | Production `desktop` installed `dsh-codex-advisor` 0.1.0 via `plugin_manager` (tag `v0.1.0`); 5 tools registered, `activate` pid 9428, applied live without restart. Backups and rollback are in place; R1 remains open. |
 
 Windows desktop verification uses a scheduled task with `-LogonType Interactive` plus CDP on port 9222; see `docs/RELEASE_ACCEPTANCE.md` L4.
 
