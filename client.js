@@ -141,17 +141,25 @@ window.__ModuleLoader__.load({
       cardWaiting: 'No answer yet',
     };
 
-    async function getJson(path, params) {
+    async function getJson(path, params, options = {}) {
+      const timeoutMs = options.timeoutMs ?? 15000;
       const url = new URL(path, document.baseURI);
       for (const [key, value] of Object.entries(params || {})) {
         if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
       }
-      const response = await fetch(url.pathname + url.search, {
-        cache: 'no-store',
-        headers: { accept: 'application/json' },
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return response.json();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(url.pathname + url.search, {
+          cache: 'no-store',
+          headers: { accept: 'application/json' },
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+      } finally {
+        clearTimeout(timer);
+      }
     }
 
     function useT(props) {
@@ -191,23 +199,36 @@ window.__ModuleLoader__.load({
       const t = props.t;
       const version = typeof props.version === 'string' && props.version ? props.version.replace(/^v/i, '') : null;
       const update = props.update;
-      return h('span', {
-        style: {
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 5,
-          color: 'var(--dsw-alias-label-secondary)',
-          fontSize: 10.5,
-          whiteSpace: 'nowrap',
-        },
-      },
-      version ? h('span', null, `v${version}`) : null,
-      update?.updateAvailable
-        ? h('span', {
-          title: `${t('updateAvailable')}${update.latestVersion ? `: v${update.latestVersion}` : ''}`,
-          style: { width: 6, height: 6, borderRadius: 99, background: '#ef4444', display: 'inline-block' },
-        })
-        : null);
+      const title = update?.updateAvailable
+        ? `${t('updateAvailable')}${update.latestVersion ? `: v${update.latestVersion}` : ''}`
+        : undefined;
+      const style = {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        color: 'var(--dsw-alias-label-secondary)',
+        fontSize: 10.5,
+        whiteSpace: 'nowrap',
+      };
+      const content = [
+        version ? h('span', { key: 'version' }, `v${version}`) : null,
+        update?.updateAvailable
+          ? h('span', {
+            key: 'dot',
+            style: { width: 6, height: 6, borderRadius: 99, background: '#ef4444', display: 'inline-block' },
+          })
+          : null,
+      ].filter(Boolean);
+      if (update?.updateAvailable && update.releaseUrl) {
+        return h('a', {
+          href: update.releaseUrl,
+          target: '_blank',
+          rel: 'noreferrer',
+          title,
+          style: { ...style, textDecoration: 'none', cursor: 'pointer' },
+        }, ...content);
+      }
+      return h('span', { title, style }, ...content);
     }
 
     let updateCache = null;
@@ -219,8 +240,10 @@ window.__ModuleLoader__.load({
       if (updateInFlight) return updateInFlight;
       updateInFlight = getJson(UPDATE_ENDPOINT)
         .then((value) => {
-          updateCache = value;
-          updateCacheAt = Date.now();
+          if (value && !value.error) {
+            updateCache = value;
+            updateCacheAt = Date.now();
+          }
           return value;
         })
         .catch(() => updateCache)
@@ -232,13 +255,25 @@ window.__ModuleLoader__.load({
       const [value, setValue] = React.useState(updateCache);
       React.useEffect(() => {
         let alive = true;
+        let retry = null;
         const load = async () => {
           const next = await loadUpdate();
-          if (alive) setValue(next);
+          if (!alive) return;
+          setValue(next);
+          if (!next || next.error) {
+            if (!retry) retry = setTimeout(load, 5 * 60 * 1000);
+          } else if (retry) {
+            clearTimeout(retry);
+            retry = null;
+          }
         };
         load();
         const timer = setInterval(load, 6 * 60 * 60 * 1000);
-        return () => { alive = false; clearInterval(timer); };
+        return () => {
+          alive = false;
+          clearInterval(timer);
+          if (retry) clearTimeout(retry);
+        };
       }, []);
       return value;
     }
@@ -480,7 +515,7 @@ window.__ModuleLoader__.load({
         }
         setLoading(true);
         try {
-          const value = await getJson(HISTORY_ENDPOINT, { session_id: sessionId, limit: 20 });
+          const value = await getJson(HISTORY_ENDPOINT, { session_id: sessionId, limit: 20 }, { timeoutMs: 60000 });
           setData(value);
           setError(null);
         } catch (err) {
@@ -585,7 +620,7 @@ window.__ModuleLoader__.load({
           name: 'conversation.view',
           id: 'codex-advisor',
           order: 20,
-          label: t('tab'),
+          label: () => t('tab'),
         }, CodexView));
       },
     };
