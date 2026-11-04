@@ -65,6 +65,7 @@ window.__ModuleLoader__.load({
       refresh: '刷新',
       statusReady: '可继续',
       statusBound: '等待首次回答',
+      statusPending: '上次请求未完成',
       statusFailed: '上次失败',
       statusEmpty: '尚未使用',
       statusCompleted: '已完成',
@@ -91,6 +92,7 @@ window.__ModuleLoader__.load({
       updateAvailable: '有新版本',
       cardEmpty: '在对话里问一次 Codex',
       cardFailed: '上次轮次没有完成',
+      cardPending: '这次请求没有拿到回答，可在 Codex 轨迹里查看状态',
       cardWaiting: '还没有回答',
     };
 
@@ -108,6 +110,7 @@ window.__ModuleLoader__.load({
       refresh: 'Refresh',
       statusReady: 'Ready',
       statusBound: 'Waiting for first answer',
+      statusPending: 'Last request unfinished',
       statusFailed: 'Last turn failed',
       statusEmpty: 'Not used yet',
       statusCompleted: 'completed',
@@ -134,6 +137,7 @@ window.__ModuleLoader__.load({
       updateAvailable: 'Update available',
       cardEmpty: 'Ask Codex in the conversation',
       cardFailed: 'The last turn did not complete',
+      cardPending: 'The last request has no answer yet; open the Codex trail for the status',
       cardWaiting: 'No answer yet',
     };
 
@@ -277,27 +281,32 @@ window.__ModuleLoader__.load({
       const answerAt = toDate(snapshot?.last_answer_at)?.getTime() ?? 0;
       const failed = Boolean(failure && failureAt >= answerAt);
       const hasAnswer = !failed && Boolean(answer);
+      const pending = !failed && !hasAnswer && Boolean(snapshot?.thread_id) && Boolean(snapshot?.last_ask_at);
       const status = !sessionId
         ? 'empty'
         : failed
           ? 'failed'
           : hasAnswer
             ? 'ready'
-            : snapshot?.thread_id
-              ? 'bound'
-              : 'empty';
+            : pending
+              ? 'pending'
+              : snapshot?.thread_id
+                ? 'bound'
+                : 'empty';
       const statusLabel = status === 'failed'
         ? t('statusFailed')
         : status === 'ready'
           ? t('statusReady')
-          : status === 'bound'
-            ? t('statusBound')
-            : t('statusEmpty');
+          : status === 'pending'
+            ? t('statusPending')
+            : status === 'bound'
+              ? t('statusBound')
+              : t('statusEmpty');
       const statusColor = status === 'failed'
         ? '#dc2626'
         : status === 'ready'
           ? '#16a34a'
-          : status === 'bound'
+          : (status === 'pending' || status === 'bound')
             ? '#d97706'
             : 'var(--dsw-alias-label-secondary)';
       const meta = [snapshot?.model, snapshot?.effort].filter(Boolean).join(' · ');
@@ -307,7 +316,9 @@ window.__ModuleLoader__.load({
           ? (failure?.message || t('cardFailed'))
           : hasAnswer
             ? answer
-            : t('cardEmpty');
+            : pending
+              ? t('cardPending')
+              : t('cardEmpty');
       const when = failed
         ? formatWhen(failure?.at, t)
         : hasAnswer
