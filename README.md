@@ -1,5 +1,7 @@
 # dsh-codex-advisor
 
+[![CI](https://github.com/Awenforever/dsh-codex-advisor/actions/workflows/ci.yml/badge.svg)](https://github.com/Awenforever/dsh-codex-advisor/actions/workflows/ci.yml)
+
 A persistent **Codex advisor** for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) sessions.
 
 One DSH session keeps **one Codex thread**: ask for a plan, change the plan mid-course, and request a final acceptance review without re-sending the conversation. The binding survives DSH restarts. Codex runs through the official `codex app-server` protocol under the user's existing ChatGPT/Codex login, so it uses the user's Codex quota, not a new API key.

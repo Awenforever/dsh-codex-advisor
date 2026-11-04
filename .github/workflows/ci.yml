@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Syntax
+        run: |
+          node --check index.js
+          node --check client.js
+          node --check lib/jsonrpc.mjs
+          node --check lib/store.mjs
+          node --check lib/codex.mjs
+          node --check lib/manager.mjs
+          node --check lib/update.mjs
+          node --check lib/spawn.mjs
+
+      - name: Unit tests
+        run: node --test --test-force-exit test/jsonrpc.test.mjs test/store.test.mjs test/codex.test.mjs test/manager.test.mjs test/manifest.test.mjs test/update.test.mjs
+
+      - name: Host harness
+        run: node test/harness/host-level.mjs
+
+      - name: Failure-path harness
+        run: node test/harness/failure-level.mjs
