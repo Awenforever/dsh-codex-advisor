@@ -60,13 +60,14 @@ apply(ctx, {
 const exec = () => ({ agent: { id: 'sess-l2' }, signal: new AbortController().signal });
 
 try {
-  assert.deepEqual([...tools.keys()].sort(), ['codex_ask', 'codex_cancel', 'codex_poll', 'codex_reset', 'codex_status']);
+  assert.deepEqual([...tools.keys()].sort(), ['codex_ask', 'codex_cancel', 'codex_history', 'codex_poll', 'codex_reset', 'codex_status']);
   assert.equal(promptSections.length, 1);
   assert.match(promptSections[0].text, /persistent/i);
 
   const ask = tools.get('codex_ask');
   const first = await ask.execute({ message: 'hello from L2' }, exec());
   assert.equal(first.status, 'completed');
+  assert.equal(first.source.kind, 'codex-advisor');
   assert.ok(first.thread_id);
   assert.match(first.answer, /pong:hello from L2/);
 
@@ -74,11 +75,18 @@ try {
   assert.equal(second.thread_id, first.thread_id);
   assert.match(second.answer, /history=1/);
 
+  const history = await tools.get('codex_history').execute({ limit: 5 }, exec());
+  assert.equal(history.thread_id, first.thread_id);
+  assert.equal(history.source.kind, 'codex-advisor');
+  assert.ok(history.turns.length >= 2);
+  assert.match(history.turns.at(-1).answer, /history=1/);
+
   const status = await tools.get('codex_status').execute({}, exec());
   assert.equal(status.status, 'ok');
   assert.equal(status.codex.state, 'ready');
   assert.equal(status.thread.thread_id, first.thread_id);
   assert.equal(status.config.sandbox, 'workspace-write');
+  assert.ok(status.tools.includes('codex_history'));
 
   const cancel = await tools.get('codex_cancel').execute({}, exec());
   assert.equal(cancel.status, 'idle');

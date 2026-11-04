@@ -12,9 +12,22 @@ One DSH session keeps **one Codex thread**: ask for a plan, change the plan mid-
 | `codex_poll` | Collect a running/finished turn. |
 | `codex_cancel` | Send `turn/interrupt`. |
 | `codex_status` | App-server state/version, bound thread, active turn, quota snapshot, last error. |
+| `codex_history` | Read the bound thread's last N turns: ask, final answer, commands, file changes, with `source` provenance. |
 | `codex_reset` | Start a new thread (the old thread stays in Codex; it is not deleted). |
 
 The advisor thread is bound to the DSH `SessionId`, so reopening the same DSH session resumes it automatically. A new DSH session can attach an existing thread with `codex_ask({ thread_id })`.
+
+## Provenance
+
+Every `codex_*` result carries a `source` object:
+
+```json
+{"kind":"codex-advisor","transport":"codex-app-server","plugin":"dsh-codex-advisor","version":"0.3.0","model":"gpt-6-luna","effort":"max"}
+```
+
+`codex_history` returns the Codex side's own turns (ask, final answer, commands, files), so provenance is inspectable rather than only a chat paraphrase. The plugin's system-prompt section requires the DSH agent to label Codex output explicitly and include the thread/turn.
+
+The bridge does **not** expose Codex's internal reasoning; it exposes protocol-level facts (threads, turns, answers, command/file items, approvals, quota).
 
 ## Install
 
