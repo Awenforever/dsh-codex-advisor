@@ -158,8 +158,8 @@ function registerWebRoutes(ctx, manager, disposers, log) {
   register('/plugins/dsh-codex-advisor/history', async (request, response) => {
     if (!acceptReadRequest(ctx, request, response)) return;
     const query = queryOf(request);
-    const threadId = query.get('thread_id') || undefined;
-    const limit = Number(query.get('limit') ?? 5);
+    const threadId = query.searchParams.get('thread_id') || undefined;
+    const limit = Number(query.searchParams.get('limit') ?? 5);
     try {
       const value = await manager.history({ thread_id: threadId, limit }, routeExec(request));
       writeJson(response, 200, value);

@@ -33,7 +33,12 @@ window.__ModuleLoader__.load({
     }
 
     function useActiveSession() {
-      return React.useSyncExternalStore(subscribeActiveSession, getActiveSession, getActiveSession);
+      const [value, setValue] = React.useState(getActiveSession());
+      React.useEffect(() => {
+        setValue(getActiveSession());
+        return subscribeActiveSession(() => setValue(getActiveSession()));
+      }, []);
+      return value;
     }
 
     function SessionProbe(props) {
@@ -394,9 +399,7 @@ window.__ModuleLoader__.load({
           name: 'conversation.view',
           id: 'codex-advisor',
           order: 20,
-          label: () => t('tab'),
-          locale: NS,
-          inject: () => ({ t }),
+          label: t('tab'),
         }, CodexView));
       },
     };
