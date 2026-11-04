@@ -117,7 +117,7 @@ Each tool result carries `code`, `message`, and a short `hint`.
 
 ```powershell
 node --check index.js
-node --test --test-force-exit test/jsonrpc.test.mjs test/store.test.mjs test/codex.test.mjs test/manager.test.mjs test/manifest.test.mjs test/update.test.mjs
+node --test --test-force-exit test/jsonrpc.test.mjs test/store.test.mjs test/codex.test.mjs test/manager.test.mjs test/manifest.test.mjs test/update.test.mjs test/client.test.mjs
 node test/harness/host-level.mjs
 node test/harness/failure-level.mjs
 ```

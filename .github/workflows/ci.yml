@@ -29,7 +29,7 @@ jobs:
           node --check lib/spawn.mjs
 
       - name: Unit tests
-        run: node --test --test-force-exit test/jsonrpc.test.mjs test/store.test.mjs test/codex.test.mjs test/manager.test.mjs test/manifest.test.mjs test/update.test.mjs
+        run: node --test --test-force-exit test/jsonrpc.test.mjs test/store.test.mjs test/codex.test.mjs test/manager.test.mjs test/manifest.test.mjs test/update.test.mjs test/client.test.mjs
 
       - name: Host harness
         run: node test/harness/host-level.mjs
