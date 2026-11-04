@@ -89,16 +89,16 @@ The offline tests use `test/fake-app-server.mjs`, which speaks the subset of the
 
 ## Status and known residuals
 
-Development and verification are complete through the fake-Codex path; the production bundle is installed, while real Codex semantic acceptance is still pending. Residual IDs match `docs/RELEASE_ACCEPTANCE.md` and the CollabCenter project page.
+Development and verification are complete, including the real Codex R1 acceptance; the production bundle is installed and accepted with `gpt-6-luna` + `max`. Residual IDs match `docs/RELEASE_ACCEPTANCE.md` and the CollabCenter project page.
 
 | ID | State | Detail |
 |---|---|---|
-| R1 | open | Real Codex semantic turn (recall, tools, interrupt, approvals) is pending the ChatGPT weekly quota reset (2026-11-04 14:36 +0800). |
+| R1 | closed (2026-11-04) | Real Codex: app-server resume, recall `AMBER-WALRUS-5078`, read-only command, write `R1-WRITE-OK`, `turn/interrupt`, approval declined; production two turns on one thread; no quota error. See [R1 report](reports/2026-11-04-R1-real-codex.md). |
 | R2 | closed | The isolated-profile e2e used a process-scoped USTC key injection (never persisted); S1–S4 passed against the fake app-server. |
 | R3 | closed | `win11-test`: bundle installed; desktop composition and real app launch verified. The app runs as `Administrator` in `SessionId=1` via an interactive scheduled task (`New-ScheduledTaskPrincipal -LogonType Interactive`), plugin `activate` pid 5800, CDP `http://127.0.0.1:9222/json` HTTP 200. |
-| R4 | closed (2026-11-04) | Production `desktop` installed `dsh-codex-advisor` **0.2.0** via `plugin_manager` (tag `v0.2.0`); 5 tools registered, `activate` pid 9428, applied live without restart. Backups and rollback are in place; R1 remains open. |
+| R4 | closed (2026-11-04) | Production `desktop` installed `dsh-codex-advisor` **0.2.0** via `plugin_manager` (tag `v0.2.0`); 5 tools registered, `activate` pid 9428, applied live without restart. Final config: `gpt-6-luna` + `max`; R1 passed. |
 
-During acceptance the production profile uses `model: gpt-6-luna` with `reasoningEffort: low` (cheaper); switch to `max` only after R1 passes and production is genuinely ready. `reasoningEffort` is passed to the Codex `turn/start` request.
+During acceptance the production profile used `reasoningEffort: low` (cheaper); after R1 passed it was switched to `max`. `reasoningEffort` is passed to the Codex `turn/start` request.
 
 Windows desktop verification uses a scheduled task with `-LogonType Interactive` plus CDP on port 9222; see `docs/RELEASE_ACCEPTANCE.md` L4.
 
