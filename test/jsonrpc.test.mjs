@@ -4,6 +4,12 @@ import { PassThrough } from 'node:stream';
 import { createInterface } from 'node:readline';
 import { JsonRpcClient } from '../lib/jsonrpc.mjs';
 
+// The client unrefs its per-request timeout so it never keeps DSH alive. The
+// timeout/abort tests need an active handle of their own on Node 22, otherwise
+// the test process can observe an empty event loop before the timer fires.
+const keepAlive = setInterval(() => {}, 1000);
+test.after(() => clearInterval(keepAlive));
+
 function harness({ onServerRequest } = {}) {
   const toClient = new PassThrough();
   const fromClient = new PassThrough();
