@@ -14,12 +14,13 @@ import { createInterface } from 'node:readline';
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const CODEX = process.argv[2]
   ?? 'C:\\Users\\king_\\AppData\\Local\\OpenAI\\Codex\\bin\\22cfb1d302613eae\\codex.exe';
 const CWD = process.argv[3] ?? process.cwd();
 const RUN_DIR = process.argv[4]
-  ?? join(process.cwd(), 'codex-advisor', 'spike', 'runs', new Date().toISOString().replace(/[:.]/g, '-'));
+  ?? join(fileURLToPath(new URL('.', import.meta.url)), 'runs', new Date().toISOString().replace(/[:.]/g, '-'));
 const MODEL = process.env.CODEX_PROBE_MODEL ?? 'gpt-6-luna';
 const EFFORT = process.env.CODEX_PROBE_EFFORT ?? 'low';
 
