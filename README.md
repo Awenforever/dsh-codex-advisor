@@ -38,7 +38,7 @@ The bundle also ships a client half:
 - **Codex tab**: registered in `conversation.view` (id `codex-advisor`, order 20). It shows a per-session timeline of asks, answers, failure reasons, commands, files, source, model and effort.
 - **Sidebar card**: registered in `sidebar.footer.action` (id `codex-advisor-card`). It shows the plugin version, status, model/effort, latest answer or failure, and last activity; it no longer exposes the raw thread id.
 - **Session probe**: registered in `conversation.composer.dock` so the card follows the active DSH session.
-- **Update check**: the card and tab check `GET /plugins/dsh-codex-advisor/update` and show a red dot when GitHub has a newer tag. The Host caches the check for six hours; the client also refreshes it every six hours. This is read-only — installing an update remains a plugin-manager/user action.
+- **Update check**: the card and tab check `GET /plugins/dsh-codex-advisor/update` and show a red dot when GitHub has a newer tag. The Host caches the check for six hours; the client also refreshes it every six hours and retries a failed check after five minutes. The red-dot badge links to the release page. This is read-only — installing an update remains a plugin-manager/user action. Client requests are bounded (15s snapshot/update, 60s history).
 
 The Host exposes three read-only same-origin routes used by the client:
 
