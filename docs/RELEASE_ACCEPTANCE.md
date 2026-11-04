@@ -86,11 +86,12 @@ Host `DESKTOP-KFSCV8C`, user `king_`, DSH `0.2.1-rc.5`, profile `desktop`.
 | Check | Result | Evidence |
 |---|---|---|
 | pre-install backup | PASS | `package.json`, `cordis.patch.yml`, `pnpm-lock.yaml` → `.bak-20261104-codex-advisor`; rollback script `C:\Users\king_\.dsh\codex-advisor-rollback.ps1` |
-| install via `plugin_manager` | PASS | `install_bundle` target tag `v0.1.0` tarball; `application=applied`; bundle `dsh-codex-advisor` 0.1.0 `enabled/installed` |
+| install via `plugin_manager` | PASS | initial 0.1.0, upgraded to **0.2.0** (tag `v0.2.0` tarball); `application=applied`; bundle `dsh-codex-advisor` 0.2.0 `enabled/installed` |
 | tools registered | PASS | Host `Tool.listTools` includes `codex_ask`, `codex_poll`, `codex_cancel`, `codex_status`, `codex_reset` |
-| activation | PASS | `events.ndjson` → `{"event":"activate","pid":9428,...,"t":"2026-11-04T04:03:04.084Z"}` |
+| model/effort config | PASS | profile patch: `model: gpt-6-luna`, `reasoningEffort: low`; plugin reloaded after the patch (activate `2026-11-04T05:14:06.755Z`) |
+| activation | PASS | `events.ndjson` → `{"event":"activate","pid":9428,...,"t":"2026-11-04T04:03:04.084Z"}`, reloaded `05:14:06.755Z` |
 | restart | not needed | package applied live; the running DSH app remained up |
-| real Codex semantic | **PENDING (R1)** | quota reset `2026-11-04T06:36:11Z` (14:36 +0800); G0 semantic half still open |
+| real Codex semantic | **PENDING (R1)** | quota reset `2026-11-04T06:36:11Z` (14:36 +0800); test with `gpt-6-luna` + `low`; G0 semantic half still open |
 | rollback | ready | `plugin_manager remove_bundle` target `dsh-codex-advisor`, or the rollback script |
 
 ## Four required scenarios
@@ -109,11 +110,11 @@ Host `DESKTOP-KFSCV8C`, user `king_`, DSH `0.2.1-rc.5`, profile `desktop`.
 | R1 | open | Real Codex semantic turn (turn-2 recall, tool use, `turn/interrupt`, auto-declined approval) is pending the account weekly quota reset at `2026-11-04T06:36:11Z` (14:36 +0800). |
 | R2 | closed | Isolated-profile model-driven e2e ran with `USTC1_API_KEY` injected into the headless process environment only (never written to disk/profile/logs); S1–S4 passed against the fake app-server. |
 | R3 | closed (2026-11-03 12:09 +0800) | `win11-test`: bundle installed; desktop composition and real app launch verified. The app runs as `Administrator` in `SessionId=1` via an interactive scheduled task (`New-ScheduledTaskPrincipal -LogonType Interactive`), plugin `activate` pid 5800, CDP `http://127.0.0.1:9222/json` HTTP 200, page `dsh-app://app/`. The VMware blank-password boundary is irrelevant to this path. |
-| R4 | closed (2026-11-04 12:03 +0800) | Production `desktop` installed `dsh-codex-advisor` 0.1.0 via `plugin_manager` (tag `v0.1.0`); 5 tools registered, `activate` pid 9428, applied live without restart. Backups and rollback script are in place. R1 remains open. |
+| R4 | closed (2026-11-04 13:11 +0800) | Production `desktop` installed `dsh-codex-advisor` **0.2.0** via `plugin_manager` (tag `v0.2.0`); 5 tools registered, `activate` pid 9428, applied live without restart. Profile config: `model: gpt-6-luna`, `reasoningEffort: low` for acceptance. Backups and rollback script are in place. R1 remains open; switch to `max` only after R1 passes. |
 
 ## G0 note
 
-The structural half of G0 passed; the semantic half is pending R1. The production bundle was installed on 2026-11-04 with explicit operator authorization (R4), but **G0 remains open**: do not treat the production advisor as accepted or use it for real advisory work until R1 passes. If R1 fails, remove the bundle with `plugin_manager remove_bundle` or the rollback script.
+The structural half of G0 passed; the semantic half is pending R1. The production bundle was installed on 2026-11-04 with explicit operator authorization (R4), but **G0 remains open**: do not treat the production advisor as accepted or use it for real advisory work until R1 passes. Acceptance uses `gpt-6-luna` + `reasoningEffort: low`; switch to `max` only after R1 passes. If R1 fails, remove the bundle with `plugin_manager remove_bundle` or the rollback script.
 
 ## Rollback (production desktop)
 
