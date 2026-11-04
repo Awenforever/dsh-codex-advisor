@@ -29,21 +29,23 @@ Every `codex_*` result carries a `source` object:
 
 The bridge does **not** expose Codex's internal reasoning; it exposes protocol-level facts (threads, turns, answers, command/file items, approvals, quota).
 
-For the planned session-tab UI (tab vs sidebar evaluation), see [docs/L2_UI_PLAN.md](docs/L2_UI_PLAN.md).
+For the design evaluation (tab vs sidebar), see [docs/L2_UI_PLAN.md](docs/L2_UI_PLAN.md).
 
-## UI (0.4.x)
+## UI (0.5.x)
 
 The bundle also ships a client half:
 
-- **Codex tab**: registered in `conversation.view` (id `codex-advisor`, order 20). It shows the bound thread's turns, asks, answers, commands, files, source, model and effort.
-- **Sidebar card**: registered in `sidebar.footer.action` (id `codex-advisor-card`). It shows the thread/model/effort and the latest answer or empty state.
+- **Codex tab**: registered in `conversation.view` (id `codex-advisor`, order 20). It shows a per-session timeline of asks, answers, failure reasons, commands, files, source, model and effort.
+- **Sidebar card**: registered in `sidebar.footer.action` (id `codex-advisor-card`). It shows the plugin version, status, model/effort, latest answer or failure, and last activity; it no longer exposes the raw thread id.
 - **Session probe**: registered in `conversation.composer.dock` so the card follows the active DSH session.
+- **Update check**: the card and tab check `GET /plugins/dsh-codex-advisor/update` and show a red dot when GitHub has a newer tag. The Host caches the check for six hours; the client also refreshes it every six hours. This is read-only — installing an update remains a plugin-manager/user action.
 
-The Host exposes two read-only same-origin routes used by the client:
+The Host exposes three read-only same-origin routes used by the client:
 
 ```text
 GET /plugins/dsh-codex-advisor/snapshot?session_id=…      # no app-server spawn
 GET /plugins/dsh-codex-advisor/history?session_id=…&limit=20
+GET /plugins/dsh-codex-advisor/update                     # GitHub tags, cached
 ```
 
 The routes are gated by the DSH connection fence on the Web host and skipped on the Desktop host. The client half is loaded at DSH start; after installing or updating a client bundle, fully quit and reopen DSH.
@@ -128,7 +130,7 @@ Development and verification are complete, including the real Codex R1 acceptanc
 | R1 | closed (2026-11-04) | Real Codex: app-server resume, recall `AMBER-WALRUS-5078`, read-only command, write `R1-WRITE-OK`, `turn/interrupt`, approval declined; production two turns on one thread; no quota error. See [R1 report](reports/2026-11-04-R1-real-codex.md). |
 | R2 | closed | The isolated-profile e2e used a process-scoped USTC key injection (never persisted); S1–S4 passed against the fake app-server. |
 | R3 | closed | `win11-test`: bundle installed; desktop composition and real app launch verified. The app runs as `Administrator` in `SessionId=1` via an interactive scheduled task (`New-ScheduledTaskPrincipal -LogonType Interactive`), plugin `activate` pid 5800, CDP `http://127.0.0.1:9222/json` HTTP 200. |
-| R4 | closed (2026-11-04) | Production `desktop` installed `dsh-codex-advisor` **0.4.3** (staged files; tag `v0.4.3`); 6 tools including `codex_history`; `activate` pid 9428, applied live without app restart. Final config: `gpt-6-luna` + `max`; R1 passed. Backups and rollback script are in place. |
+| R4 | closed (2026-11-04) | Production `desktop` loaded `dsh-codex-advisor` **0.5.0** staged files (tag `v0.5.0`; clean tag install pending GitHub codeload); 6 tools; client tab/card/probe registered; UI redesign pending the final full restart. Final config: `gpt-6-luna` + `max`; R1 passed. Backups and rollback script are in place. |
 
 During acceptance the production profile used `reasoningEffort: low` (cheaper); after R1 passed it was switched to `max`. `reasoningEffort` is passed to the Codex `turn/start` request.
 
