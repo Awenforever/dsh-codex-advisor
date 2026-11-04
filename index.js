@@ -135,6 +135,18 @@ function registerWebRoutes(ctx, manager, disposers, log) {
       log('warn', { event: 'web-route-register-failed', path, message: err?.message ?? String(err) });
     }
   };
+  register('/plugins/dsh-codex-advisor/ping', (request, response) => {
+    writeJson(response, 200, { ok: true, version: PLUGIN_VERSION });
+  });
+  register('/plugins/dsh-codex-advisor/diag', (request, response) => {
+    writeJson(response, 200, {
+      ok: true,
+      version: PLUGIN_VERSION,
+      desktop: isDesktopHost(ctx),
+      connection: Boolean(safeGet(ctx, 'connection')),
+      argvTail: process.argv.slice(-5),
+    });
+  });
   register('/plugins/dsh-codex-advisor/snapshot', (request, response) => {
     if (!acceptReadRequest(ctx, request, response)) return;
     try {
@@ -204,7 +216,15 @@ function acceptReadRequest(ctx, request, response) {
 }
 
 function routeExec(request) {
-  return { agent: { id: queryOf(request).get('session_id') || 'route' } };
+  return { agent: { id: queryOf(request).searchParams.get('session_id') || 'route' } };
+}
+
+function safeGet(ctx, key) {
+  try {
+    return typeof ctx.get === 'function' ? ctx.get(key) : ctx[key];
+  } catch {
+    return null;
+  }
 }
 
 function queryOf(request) {
