@@ -1,6 +1,17 @@
 # L2 UI plan — Codex Advisor as a session tab
 
-Status: evaluation after L1 (2026-11-04). L2 is not implemented yet.
+Status: L2 implementation in 0.4.3 — tab live; sidebar card registered but its visual placement is unresolved. Evidence: `reports/2026-11-04-L2-ui.md`.
+
+## Implementation status (2026-11-04)
+
+- `conversation.view` / `codex-advisor` is active; the Codex tab renders source, model, effort, thread, turns and the ask card.
+- `sidebar.footer.action` / `codex-advisor-card` is registered. It was not visible in the captured window; the USTC card in the same slot was also absent, so the shared sidebar footer is below the fold or not rendered in that expanded layout.
+- `conversation.composer.dock` / `codex-advisor-session-probe` is active.
+- Host routes `snapshot` and `history` return 200. Registration now waits for the `webServer` service instead of running once at activate time.
+- A live `codex_ask` turn failed with `workspace routing discovery failed` while `chatgpt.com` timed out (curl 000). The failed turn is visible in the tab; this is external network, not the UI path.
+
+Residual: confirm the card after scrolling/collapsing the sidebar; if it stays hidden, move a compact status to the composer dock or a session-row badge, or add the footer layout treatment used by the USTC card.
+
 
 ## Slot evidence
 

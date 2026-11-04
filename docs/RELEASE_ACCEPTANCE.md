@@ -86,11 +86,15 @@ Host `DESKTOP-KFSCV8C`, user `king_`, DSH `0.2.1-rc.5`, profile `desktop`.
 | Check | Result | Evidence |
 |---|---|---|
 | pre-install backup | PASS | `package.json`, `cordis.patch.yml`, `pnpm-lock.yaml` → `.bak-20261104-codex-advisor`; rollback script `C:\Users\king_\.dsh\codex-advisor-rollback.ps1` |
-| install via `plugin_manager` | PASS | initial 0.1.0, upgraded to 0.2.0, now **0.3.0** (tag `v0.3.0` tarball); `application=applied`; bundle `dsh-codex-advisor` 0.3.0 `enabled/installed` |
+| install via `plugin_manager` | PASS | initial 0.1.0, upgraded to 0.2.0, 0.3.0, then **0.4.3** (tag `v0.4.3`; installed files staged because GitHub codeload timed out); `application=applied`; bundle `dsh-codex-advisor` 0.4.3 `enabled/installed` |
 | tools registered | PASS | Host `Tool.listTools` includes `codex_ask`, `codex_poll`, `codex_cancel`, `codex_status`, `codex_history`, `codex_reset` |
 | model/effort config | PASS | acceptance `model: gpt-6-luna`, `reasoningEffort: low`; after R1 switched to `reasoningEffort: max` (activate `2026-11-04T07:12:50.369Z`) |
-| activation | PASS | `events.ndjson` → `{"event":"activate","pid":9428,...,"t":"2026-11-04T04:03:04.084Z"}`, reloaded `05:14:06.755Z`, `07:12:50.369Z`, and `08:34:43.974Z` (0.3.0) |
-| provenance / history (L1) | PASS | every result carries `source` (`codex-advisor`, plugin 0.3.0, model, effort); `codex_history` on real thread `01a1a54c-e261-7123-979e-3544042de507` returned 2 turns with asks/answers, `model=gpt-6-luna`, `effort=max` |
+| activation | PASS | `events.ndjson` → `{"event":"activate","pid":9428,...,"t":"2026-11-04T04:03:04.084Z"}`, reloaded `05:14:06.755Z`, `07:12:50.369Z`, `08:34:43.974Z` (0.3.0), and after restart `2026-11-04T14:45:52.875Z` (pid 41584, 0.4.2) + `14:56:57.992Z` (0.4.3) |
+| provenance / history (L1) | PASS | every result carries `source` (`codex-advisor`, plugin 0.4.3, model, effort); `codex_history` on real thread `01a1a54c-e261-7123-979e-3544042de507` returned 2 turns with asks/answers, `model=gpt-6-luna`, `effort=max` |
+| L2 client tab | PASS | slots: `conversation.view` occupant `codex-advisor` order 20 active; live app shows `Codex 顾问轨迹` with source 0.4.3, model/effort, thread `01a1a712…`, turns 1/1 and the ask card |
+| L2 sidebar card | PARTIAL | `sidebar.footer.action` occupant `codex-advisor-card` order 20 active; not visible in the captured window; the USTC card in the same slot was also absent (shared sidebar-footer layout/visibility issue) |
+| L2 host routes | PASS | `GET /plugins/dsh-codex-advisor/snapshot` 200; `history` 200 with real turns; after deferred `webServer` registration (0.4.3) |
+| L2 live turn | FAIL (external network) | current session thread `01a1a712-a25b-7791-a0de-1ac1f6695911` turn failed: `workspace routing discovery failed` / `codex_error_info: other`; `https://chatgpt.com` timed out (curl 000); `quota-check-failed` in events. Not a plugin/UI failure. |
 | restart | not needed | package applied live; the running DSH app remained up |
 | real Codex semantic (R1) | **PASS** (2026-11-04 14:42–15:13 +0800) | `gpt-6-luna` + `low`: spike thread `01a1a54b-aeb4-7502-83d2-cf4c0b9b2488` (read-only tool, app-server resume, recall `AMBER-WALRUS-5078`, interrupt); approval thread `01a1a556-19b5-7d60-ad90-ffae77fda0fd` (`declinedApprovals=1`, command declined); production thread `01a1a54c-e261-7123-979e-3544042de507` two turns; write file `.scratch/advisor-r1-write.txt` = `R1-WRITE-OK`; details in [R1 report](../reports/2026-11-04-R1-real-codex.md) |
 | max switch | PASS | profile patch `reasoningEffort: max`; plugin reload; `codex_status` → `config.model=gpt-6-luna`, `config.reasoningEffort=max` |
@@ -105,14 +109,16 @@ Host `DESKTOP-KFSCV8C`, user `king_`, DSH `0.2.1-rc.5`, profile `desktop`.
 | S3 final acceptance | PASS (model used the accumulated thread across three calls) | PASS (spike recalled `AMBER-WALRUS-5078`; production turn 2 answered call 2) |
 | S4 DSH restart / recovery | PASS (model-driven `--session-id` resume in a new Host: same thread, `history=1`; Windows restart harness; fail-closed digest on thread loss) | PASS (real app-server restart/resume; plugin restart harness; production app not restarted) |
 
-## Known residuals (R1–R4)
+## Known residuals (R1–R6)
 
 | ID | State | Detail |
 |---|---|---|
 | R1 | closed (2026-11-04 15:13 +0800) | Real Codex: app-server resume, recall `AMBER-WALRUS-5078`, read-only command, write `R1-WRITE-OK`, `turn/interrupt`, approval declined; production two turns on one thread; no quota error. Details in [R1 report](../reports/2026-11-04-R1-real-codex.md). |
 | R2 | closed | Isolated-profile model-driven e2e ran with `USTC1_API_KEY` injected into the headless process environment only (never written to disk/profile/logs); S1–S4 passed against the fake app-server. |
 | R3 | closed (2026-11-03 12:09 +0800) | `win11-test`: bundle installed; desktop composition and real app launch verified. The app runs as `Administrator` in `SessionId=1` via an interactive scheduled task (`New-ScheduledTaskPrincipal -LogonType Interactive`), plugin `activate` pid 5800, CDP `http://127.0.0.1:9222/json` HTTP 200, page `dsh-app://app/`. The VMware blank-password boundary is irrelevant to this path. |
-| R4 | closed (2026-11-04 16:34 +0800) | Production `desktop` installed `dsh-codex-advisor` **0.3.0** via `plugin_manager` (tag `v0.3.0`); 6 tools including `codex_history`; `activate` pid 9428, applied live without restart. Final config: `model: gpt-6-luna`, `reasoningEffort: max`; R1 passed. Backups and rollback script are in place. |
+| R4 | closed (2026-11-04 23:00 +0800) | Production `desktop` loaded `dsh-codex-advisor` **0.4.3** staged files (tag `v0.4.3`); 6 tools; client tab/card/probe registered after restart; routes 200. Final config `gpt-6-luna` + `max`. |
+| R5 | open (2026-11-04) | Sidebar card registered but not visible in the expanded sidebar capture; USTC card also absent in the same footer. Need a visible-slot fallback or footer layout treatment. |
+| R6 | open (external) | Live Codex turn failed with `workspace routing discovery failed` while `chatgpt.com` timed out; retry when the network recovers; clean tag install also pending GitHub codeload. |
 
 ## G0 note
 
