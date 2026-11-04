@@ -29,6 +29,8 @@ Every `codex_*` result carries a `source` object:
 
 The bridge does **not** expose Codex's internal reasoning; it exposes protocol-level facts (threads, turns, answers, command/file items, approvals, quota).
 
+For the planned session-tab UI (tab vs sidebar evaluation), see [docs/L2_UI_PLAN.md](docs/L2_UI_PLAN.md).
+
 ## Install
 
 ```powershell
@@ -109,7 +111,7 @@ Development and verification are complete, including the real Codex R1 acceptanc
 | R1 | closed (2026-11-04) | Real Codex: app-server resume, recall `AMBER-WALRUS-5078`, read-only command, write `R1-WRITE-OK`, `turn/interrupt`, approval declined; production two turns on one thread; no quota error. See [R1 report](reports/2026-11-04-R1-real-codex.md). |
 | R2 | closed | The isolated-profile e2e used a process-scoped USTC key injection (never persisted); S1–S4 passed against the fake app-server. |
 | R3 | closed | `win11-test`: bundle installed; desktop composition and real app launch verified. The app runs as `Administrator` in `SessionId=1` via an interactive scheduled task (`New-ScheduledTaskPrincipal -LogonType Interactive`), plugin `activate` pid 5800, CDP `http://127.0.0.1:9222/json` HTTP 200. |
-| R4 | closed (2026-11-04) | Production `desktop` installed `dsh-codex-advisor` **0.2.0** via `plugin_manager` (tag `v0.2.0`); 5 tools registered, `activate` pid 9428, applied live without restart. Final config: `gpt-6-luna` + `max`; R1 passed. |
+| R4 | closed (2026-11-04) | Production `desktop` installed `dsh-codex-advisor` **0.3.0** via `plugin_manager` (tag `v0.3.0`); 6 tools including `codex_history`; `activate` pid 9428, applied live without restart. Final config: `gpt-6-luna` + `max`; R1 passed. |
 
 During acceptance the production profile used `reasoningEffort: low` (cheaper); after R1 passed it was switched to `max`. `reasoningEffort` is passed to the Codex `turn/start` request.
 
