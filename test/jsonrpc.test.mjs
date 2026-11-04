@@ -80,8 +80,9 @@ test('abort rejects with ABORTED and removes the pending request', async () => {
   const { client } = harness();
   const controller = new AbortController();
   const pending = client.request('slow', {}, { timeoutMs: 5000, signal: controller.signal });
+  const assertion = assert.rejects(pending, (err) => err.code === 'ABORTED');
   controller.abort();
-  await assert.rejects(pending, (err) => err.code === 'ABORTED');
+  await assertion;
   assert.equal(client.pending.size, 0);
   client.close();
 });
