@@ -23,6 +23,28 @@ test('update check detects a newer tag and reuses the cache', async () => {
     fetchImpl: async () => { throw new Error('network must not be called'); },
   });
   assert.equal(cached.latestVersion, '0.9.1');
+
+  const versionChanged = await checkForUpdate('0.6.0', {
+    now: 1002,
+    ttlMs: 3600000,
+    fetchImpl: async () => ({
+      ok: true,
+      json: async () => [{ name: 'v1.0.0' }],
+    }),
+  });
+  assert.equal(versionChanged.currentVersion, '0.6.0');
+  assert.equal(versionChanged.latestVersion, '1.0.0');
+
+  const forced = await checkForUpdate('0.6.0', {
+    force: true,
+    now: 1003,
+    ttlMs: 3600000,
+    fetchImpl: async () => ({
+      ok: true,
+      json: async () => [{ name: 'v1.1.0' }],
+    }),
+  });
+  assert.equal(forced.latestVersion, '1.1.0');
   resetUpdateCache();
 });
 

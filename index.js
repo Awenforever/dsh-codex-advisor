@@ -16,7 +16,7 @@ import {
 } from './lib/manager.mjs';
 import { AdvisorStore } from './lib/store.mjs';
 import { nodeSpawn } from './lib/spawn.mjs';
-import { checkForUpdate } from './lib/update.mjs';
+import { checkForUpdate, resetUpdateCache } from './lib/update.mjs';
 
 export const name = 'codex-advisor';
 export const inject = ['tools'];
@@ -24,6 +24,7 @@ export const inject = ['tools'];
 export function apply(ctx, rawConfig = {}) {
   const config = resolveConfig(rawConfig ?? {});
   if (!config.enabled) return;
+  resetUpdateCache();
   const logger = makeLogger(ctx);
   const log = (level, data) => {
     try {
@@ -167,7 +168,8 @@ function registerWebRoutes(ctx, manager, disposers, log) {
   register('/plugins/dsh-codex-advisor/update', async (request, response) => {
     if (!acceptReadRequest(ctx, request, response)) return;
     try {
-      writeJson(response, 200, await checkForUpdate(PLUGIN_VERSION));
+      const force = queryOf(request).searchParams.get('refresh') === '1';
+      writeJson(response, 200, await checkForUpdate(PLUGIN_VERSION, { force }));
     } catch (err) {
       writeJson(response, 500, { ok: false, code: 'UPDATE_CHECK_FAILED', message: err?.message ?? String(err) });
     }
