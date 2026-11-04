@@ -102,3 +102,24 @@ test('approval requests are declined and surfaced on the turn', async () => {
   assert.ok(snapshot.declinedApprovals >= 1);
   await client.close();
 });
+
+test('turn/start carries model and reasoning effort', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'advisor-codex-'));
+  const client = makeClient({ statePath: join(dir, 'state.json') });
+  await client.ensureStarted();
+  const thread = await client.startThread({ cwd: CWD, sandbox: 'read-only', model: 'gpt-6-luna' });
+  const session = await client.startTurn({
+    threadId: thread.id,
+    text: 'model check',
+    model: 'gpt-6-luna',
+    effort: 'low',
+  });
+  const snapshot = await session.completion;
+  assert.equal(snapshot.status, 'completed');
+  const read = await client.readThread(thread.id);
+  const turns = read?.thread?.turns ?? [];
+  const last = turns.at(-1);
+  assert.equal(last.model, 'gpt-6-luna');
+  assert.equal(last.effort, 'low');
+  await client.close();
+});

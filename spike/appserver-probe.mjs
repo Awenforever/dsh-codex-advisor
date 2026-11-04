@@ -20,6 +20,8 @@ const CODEX = process.argv[2]
 const CWD = process.argv[3] ?? process.cwd();
 const RUN_DIR = process.argv[4]
   ?? join(process.cwd(), 'codex-advisor', 'spike', 'runs', new Date().toISOString().replace(/[:.]/g, '-'));
+const MODEL = process.env.CODEX_PROBE_MODEL ?? 'gpt-6-luna';
+const EFFORT = process.env.CODEX_PROBE_EFFORT ?? 'low';
 
 mkdirSync(RUN_DIR, { recursive: true });
 const GLOBAL_LOG = join(RUN_DIR, 'probe.ndjson');
@@ -28,6 +30,8 @@ const summary = {
   codex: CODEX,
   cwd: CWD,
   runDir: RUN_DIR,
+  model: MODEL,
+  effort: EFFORT,
   steps: [],
   ok: false,
 };
@@ -245,6 +249,8 @@ class AppServer {
     };
     const started = await this.request('turn/start', {
       threadId,
+      model: MODEL,
+      effort: EFFORT,
       input: [{ type: 'text', text, text_elements: [] }],
     }, 60000);
     const turnId = started?.turn?.id;
@@ -337,6 +343,7 @@ async function main() {
     ephemeral: false,
     approvalPolicy: 'never',
     sandbox: 'read-only',
+    model: MODEL,
   }, 60000);
   const thread = threadStart?.thread ?? {};
   threadId = thread.id;

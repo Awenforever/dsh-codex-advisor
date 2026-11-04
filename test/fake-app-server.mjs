@@ -240,7 +240,7 @@ rl.on('line', (line) => {
         .filter((block) => block?.type === 'text')
         .map((block) => block.text)
         .join('\n');
-      const turn = { id: `turn-${randomUUID()}`, status: 'inProgress', text, items: [] };
+      const turn = { id: `turn-${randomUUID()}`, status: 'inProgress', text, model: params.model ?? null, effort: params.effort ?? null, items: [] };
       thread.turns.push(turn);
       save();
       reply(id, { turn: { id: turn.id, status: 'inProgress' } });

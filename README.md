@@ -37,6 +37,7 @@ The row accepts these fields (all optional):
 | `codexArgv` | `null` | Full argv override (tests/wrappers). Takes precedence over `codexCommand`. |
 | `codexArgs` | `[]` | Extra args after `app-server --stdio`. |
 | `model` | `""` | `""` uses the Codex config (`gpt-6.1-sol` on the reference machine). |
+| `reasoningEffort` | `""` | `""` uses the Codex config; otherwise passed as `turn/start.effort` (for example `low`, `high`, `max`). |
 | `sandbox` | `workspace-write` | `read-only` or `workspace-write`. |
 | `approvalPolicy` | `never` | Approval requests are auto-declined; the turn continues with the refusal. |
 | `defaultWaitSeconds` | `180` | `codex_ask` wait default. |
