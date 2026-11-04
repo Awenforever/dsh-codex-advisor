@@ -87,6 +87,10 @@ try {
   assert.equal(failed.code, 'CODEX_MODEL_UNAVAILABLE');
   assert.equal(failed.source.kind, 'codex-advisor');
 
+  const polled = await tools.get('codex_poll').execute({ wait_seconds: 0 }, exec());
+  assert.equal(polled.status, 'idle');
+  assert.equal(polled.last_failure.code, 'CODEX_MODEL_UNAVAILABLE');
+
   const snapshot = await jsonRoute('/plugins/dsh-codex-advisor/snapshot', 'session_id=sess-failure');
   assert.equal(snapshot.status, 200);
   assert.equal(snapshot.body.status, 'bound');

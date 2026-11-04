@@ -361,7 +361,7 @@ window.__ModuleLoader__.load({
           : snapshot?.thread_id
             ? formatWhen(snapshot?.last_ask_at, t)
             : '';
-      const version = update?.currentVersion ?? snapshot?.source?.version ?? null;
+      const version = snapshot?.source?.version ?? update?.currentVersion ?? null;
 
       return h('div', {
         style: {
@@ -530,7 +530,7 @@ window.__ModuleLoader__.load({
       const turns = Array.isArray(data?.turns) ? data.turns : [];
       const model = data?.model ?? data?.source?.model ?? null;
       const effort = data?.effort ?? data?.source?.effort ?? null;
-      const version = update?.currentVersion ?? data?.source?.version ?? null;
+      const version = data?.source?.version ?? update?.currentVersion ?? null;
       const lastAt = turns.length > 0 ? turns[turns.length - 1].created_at : null;
       const meta = [model, effort].filter(Boolean).join(' · ');
 
