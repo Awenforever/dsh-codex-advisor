@@ -73,7 +73,7 @@ export function apply(ctx, rawConfig = {}) {
     return;
   }
   const disposers = [];
-  registerWebRoutes(ctx, manager, disposers, log);
+  queueWebRoutes(ctx, manager, disposers, log);
   for (const definition of buildTools(manager)) {
     try {
       const dispose = tools.register(definition);
@@ -116,6 +116,21 @@ const JSON_HEADERS = Object.freeze({
   'cache-control': 'no-store',
 });
 
+function queueWebRoutes(ctx, manager, disposers, log, attempt = 0) {
+  const webServer = safeGet(ctx, 'webServer');
+  if (webServer && typeof webServer.register === 'function') {
+    registerWebRoutes(ctx, manager, disposers, log);
+    return;
+  }
+  if (attempt >= 40) {
+    log('warn', { event: 'web-routes-unavailable' });
+    return;
+  }
+  const timer = setTimeout(() => queueWebRoutes(ctx, manager, disposers, log, attempt + 1), 250);
+  timer.unref?.();
+  disposers.push(() => clearTimeout(timer));
+}
+
 function registerWebRoutes(ctx, manager, disposers, log) {
   let webServer;
   try {
@@ -127,6 +142,7 @@ function registerWebRoutes(ctx, manager, disposers, log) {
     log('debug', { event: 'web-routes-unavailable' });
     return;
   }
+  log('info', { event: 'web-routes-registered', version: PLUGIN_VERSION });
   const register = (path, handler) => {
     try {
       const dispose = webServer.register({ kind: 'exact', path, handler });
