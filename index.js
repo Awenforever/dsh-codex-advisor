@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import {
   AdvisorManager,
   PLUGIN_VERSION,
+  TOOL_NAMES,
   buildTools,
   resolveConfig,
   usageSectionText,
@@ -72,6 +73,7 @@ export function apply(ctx, rawConfig = {}) {
     return;
   }
   const disposers = [];
+  registerWebRoutes(ctx, manager, disposers, log);
   for (const definition of buildTools(manager)) {
     try {
       const dispose = tools.register(definition);
@@ -106,7 +108,126 @@ export function apply(ctx, rawConfig = {}) {
   } else if (typeof process.once === 'function') {
     process.once('exit', () => { dispose().catch(() => {}); });
   }
-  log('info', { event: 'activated', stateDir, sandbox: config.sandbox, tools: ['codex_ask', 'codex_poll', 'codex_cancel', 'codex_status', 'codex_reset'] });
+  log('info', { event: 'activated', stateDir, sandbox: config.sandbox, tools: [...TOOL_NAMES] });
+}
+
+const JSON_HEADERS = Object.freeze({
+  'content-type': 'application/json; charset=utf-8',
+  'cache-control': 'no-store',
+});
+
+function registerWebRoutes(ctx, manager, disposers, log) {
+  let webServer;
+  try {
+    webServer = typeof ctx.get === 'function' ? ctx.get('webServer') : ctx.webServer;
+  } catch {
+    webServer = null;
+  }
+  if (!webServer || typeof webServer.register !== 'function') {
+    log('debug', { event: 'web-routes-unavailable' });
+    return;
+  }
+  const register = (path, handler) => {
+    try {
+      const dispose = webServer.register({ kind: 'exact', path, handler });
+      if (typeof dispose === 'function') disposers.push(dispose);
+    } catch (err) {
+      log('warn', { event: 'web-route-register-failed', path, message: err?.message ?? String(err) });
+    }
+  };
+  register('/plugins/dsh-codex-advisor/snapshot', (request, response) => {
+    if (!acceptReadRequest(ctx, request, response)) return;
+    try {
+      writeJson(response, 200, manager.snapshot({}, routeExec(request)));
+    } catch (err) {
+      writeJson(response, 500, { ok: false, code: 'CODEX_INTERNAL', message: err?.message ?? String(err) });
+    }
+  });
+  register('/plugins/dsh-codex-advisor/history', async (request, response) => {
+    if (!acceptReadRequest(ctx, request, response)) return;
+    const query = queryOf(request);
+    const threadId = query.get('thread_id') || undefined;
+    const limit = Number(query.get('limit') ?? 5);
+    try {
+      const value = await manager.history({ thread_id: threadId, limit }, routeExec(request));
+      writeJson(response, 200, value);
+    } catch (err) {
+      if (err?.code === 'CODEX_NO_THREAD') {
+        writeJson(response, 200, {
+          source: manager.sourceInfo(),
+          status: 'empty',
+          thread_id: null,
+          model: null,
+          effort: null,
+          total_turns: 0,
+          returned: 0,
+          turns: [],
+        });
+        return;
+      }
+      writeJson(response, 500, { ok: false, code: err?.code ?? 'CODEX_INTERNAL', message: err?.message ?? String(err) });
+    }
+  });
+}
+
+function acceptReadRequest(ctx, request, response) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    writeJson(response, 405, { error: 'method-not-allowed' }, { allow: 'GET, HEAD' });
+    return false;
+  }
+  if (!isDesktopHost(ctx)) {
+    let connection;
+    try {
+      connection = ctx.get('connection');
+    } catch {
+      connection = null;
+    }
+    if (connection && typeof connection.requestRejection === 'function') {
+      let rejection;
+      try {
+        rejection = connection.requestRejection(request);
+      } catch {
+        rejection = 403;
+      }
+      if (rejection !== undefined && rejection !== null) {
+        writeJson(response, rejection, { error: 'unauthorized' });
+        return false;
+      }
+    }
+  }
+  if (request.method === 'HEAD') {
+    response.writeHead(200, JSON_HEADERS);
+    response.end();
+    return false;
+  }
+  return true;
+}
+
+function routeExec(request) {
+  return { agent: { id: queryOf(request).get('session_id') || 'route' } };
+}
+
+function queryOf(request) {
+  try {
+    return new URL(request.url || '/', 'http://localhost');
+  } catch {
+    return new URL('http://localhost/');
+  }
+}
+
+function isDesktopHost(ctx) {
+  try {
+    if (ctx.get('desktopProfiles') || ctx.get('desktopPnpm')) return true;
+  } catch {
+    // fall through to process-shape detection
+  }
+  const argv = Array.isArray(process.argv) ? process.argv.join(' ').toLowerCase() : '';
+  return argv.includes('dsh-desktop-host');
+}
+
+function writeJson(response, status, body, extraHeaders = {}) {
+  response.writeHead(status, { ...JSON_HEADERS, ...extraHeaders });
+  response.end(JSON.stringify(body));
 }
 
 function makeLogger(ctx) {

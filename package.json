@@ -1,7 +1,7 @@
 {
   "name": "dsh-codex-advisor",
-  "version": "0.3.0",
-  "description": "Persistent Codex advisor threads callable from DSH sessions (app-server bridge).",
+  "version": "0.4.0",
+  "description": "Persistent Codex advisor threads callable from DSH sessions (app-server bridge) with a Codex tab and sidebar card.",
   "private": true,
   "type": "module",
   "main": "index.js",
@@ -11,11 +11,13 @@
   },
   "exports": {
     ".": "./index.js",
+    "./client": "./client.js",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
   "files": [
     "index.js",
+    "client.js",
     "lib/*.mjs",
     "cordis.patch.yml",
     "locale/*.json",
@@ -27,6 +29,10 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
     }
   },
   "engines": {
