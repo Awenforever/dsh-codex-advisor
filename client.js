@@ -1020,7 +1020,6 @@ window.__ModuleLoader__.load({
       ),
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 } },
         turnCount > 0 ? h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 9.5, whiteSpace: 'nowrap' } }, `${turnCount} ${t('rounds')}`) : null,
-        when ? h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 9.5, whiteSpace: 'nowrap' } }, when) : null,
         threadCount > 1 ? h('span', {
           style: {
             marginLeft: 'auto',
@@ -1035,16 +1034,28 @@ window.__ModuleLoader__.load({
       ),
       hasThread ? h('div', {
         style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          minWidth: 0,
           color: 'var(--dsw-alias-label-secondary)',
           fontSize: 9.5,
           lineHeight: 1.35,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          minWidth: 0,
         },
         title: threadLabel ?? '',
-      }, `Thread · ${threadLabel ?? 'Untitled'}`) : null,
+      },
+        h('span', {
+          style: {
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            minWidth: 0,
+          },
+        }, `Thread · ${threadLabel ?? 'Untitled'}`),
+        when ? h('span', {
+          style: { marginLeft: 'auto', whiteSpace: 'nowrap', flex: '0 0 auto' },
+        }, when) : null,
+      ) : null,
       lastAsk ? h('div', {
         style: {
           minWidth: 0,
@@ -1073,7 +1084,7 @@ window.__ModuleLoader__.load({
           minWidth: 0,
           padding: '6px 8px 7px',
           borderRadius: 7,
-          background: 'var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1))',
+          background: 'rgba(100, 116, 139, 0.08)',
         },
       },
         h('div', { style: { color: failed ? '#b91c1c' : 'var(--dsw-alias-label-secondary)', fontSize: 9.5, fontWeight: 600, marginBottom: 2 } }, failed ? 'Failure' : 'Codex'),
@@ -1128,12 +1139,24 @@ window.__ModuleLoader__.load({
       return h('article', {
         style: {
           position: 'relative',
-          borderLeft: `1px solid ${failed ? '#dc2626' : meta.color}`,
-          padding: '0 0 3px 17px',
+          padding: '0 0 3px 18px',
           marginBottom: 32,
           minWidth: 0,
         },
       },
+      h('div', {
+        'aria-hidden': true,
+        style: {
+          position: 'absolute',
+          left: 0,
+          top: 2,
+          bottom: 2,
+          width: 3,
+          borderRadius: 999,
+          background: failed ? '#dc2626' : meta.color,
+          pointerEvents: 'none',
+        },
+      }),
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 11, minWidth: 0 } },
         h('span', {
           style: {
@@ -1187,7 +1210,7 @@ window.__ModuleLoader__.load({
           minWidth: 0,
           padding: '12px 14px 13px',
           borderRadius: 12,
-          background: 'var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1))',
+          background: 'rgba(100, 116, 139, 0.08)',
         },
       },
         h('div', {
