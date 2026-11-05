@@ -16,7 +16,7 @@ import {
 } from './lib/manager.mjs';
 import { AdvisorStore } from './lib/store.mjs';
 import { nodeSpawn } from './lib/spawn.mjs';
-import { checkForUpdate, resetUpdateCache } from './lib/update.mjs';
+import { UpdateService } from './lib/update.mjs';
 
 export const name = 'codex-advisor';
 export const inject = ['tools'];
@@ -24,7 +24,6 @@ export const inject = ['tools'];
 export function apply(ctx, rawConfig = {}) {
   const config = resolveConfig(rawConfig ?? {});
   if (!config.enabled) return;
-  resetUpdateCache();
   const logger = makeLogger(ctx);
   const log = (level, data) => {
     try {
@@ -68,6 +67,7 @@ export function apply(ctx, rawConfig = {}) {
   };
 
   const manager = new AdvisorManager({ ctx, config, store, logger: log, spawn, cwdResolver });
+  const updateService = new UpdateService(ctx, { currentVersion: PLUGIN_VERSION });
 
   const tools = typeof ctx.get === 'function' ? ctx.get('tools') : ctx.tools;
   if (!tools || typeof tools.register !== 'function') {
@@ -75,7 +75,7 @@ export function apply(ctx, rawConfig = {}) {
     return;
   }
   const disposers = [];
-  queueWebRoutes(ctx, manager, disposers, log);
+  queueWebRoutes(ctx, manager, updateService, disposers, log);
   for (const definition of buildTools(manager)) {
     try {
       const dispose = tools.register(definition);
@@ -118,22 +118,22 @@ const JSON_HEADERS = Object.freeze({
   'cache-control': 'no-store',
 });
 
-function queueWebRoutes(ctx, manager, disposers, log, attempt = 0) {
+function queueWebRoutes(ctx, manager, updateService, disposers, log, attempt = 0) {
   const webServer = safeGet(ctx, 'webServer');
   if (webServer && typeof webServer.register === 'function') {
-    registerWebRoutes(ctx, manager, disposers, log);
+    registerWebRoutes(ctx, manager, updateService, disposers, log);
     return;
   }
   if (attempt >= 40) {
     log('warn', { event: 'web-routes-unavailable' });
     return;
   }
-  const timer = setTimeout(() => queueWebRoutes(ctx, manager, disposers, log, attempt + 1), 250);
+  const timer = setTimeout(() => queueWebRoutes(ctx, manager, updateService, disposers, log, attempt + 1), 250);
   timer.unref?.();
   disposers.push(() => clearTimeout(timer));
 }
 
-function registerWebRoutes(ctx, manager, disposers, log) {
+function registerWebRoutes(ctx, manager, updateService, disposers, log) {
   let webServer;
   try {
     webServer = typeof ctx.get === 'function' ? ctx.get('webServer') : ctx.webServer;
@@ -168,10 +168,21 @@ function registerWebRoutes(ctx, manager, disposers, log) {
   register('/plugins/dsh-codex-advisor/update', async (request, response) => {
     if (!acceptReadRequest(ctx, request, response)) return;
     try {
-      const force = queryOf(request).searchParams.get('refresh') === '1';
-      writeJson(response, 200, await checkForUpdate(PLUGIN_VERSION, { force }));
+      const query = queryOf(request);
+      const force = query.searchParams.get('refresh') === '1' || query.searchParams.get('force') === '1';
+      writeJson(response, 200, await updateService.check(force));
     } catch (err) {
       writeJson(response, 500, { ok: false, code: 'UPDATE_CHECK_FAILED', message: err?.message ?? String(err) });
+    }
+  });
+  register('/plugins/dsh-codex-advisor/update/apply', async (request, response) => {
+    if (!acceptApplyRequest(ctx, request, response)) return;
+    try {
+      const body = await readJsonBody(request);
+      const result = await updateService.apply({ spec: body?.spec });
+      writeJson(response, result.ok ? 200 : 409, result);
+    } catch (err) {
+      writeJson(response, 500, { ok: false, code: 'UPDATE_APPLY_FAILED', message: err?.message ?? String(err) });
     }
   });
   register('/plugins/dsh-codex-advisor/snapshot', (request, response) => {
@@ -186,9 +197,10 @@ function registerWebRoutes(ctx, manager, disposers, log) {
     if (!acceptReadRequest(ctx, request, response)) return;
     const query = queryOf(request);
     const threadId = query.searchParams.get('thread_id') || undefined;
+    const thread = query.searchParams.get('thread') || undefined;
     const limit = Number(query.searchParams.get('limit') ?? 5);
     try {
-      const value = await manager.history({ thread_id: threadId, limit }, routeExec(request));
+      const value = await manager.history({ thread_id: threadId, thread, limit }, routeExec(request));
       writeJson(response, 200, value);
     } catch (err) {
       if (err?.code === 'CODEX_NO_THREAD') {
@@ -196,6 +208,8 @@ function registerWebRoutes(ctx, manager, disposers, log) {
           source: manager.sourceInfo(),
           status: 'empty',
           thread_id: null,
+          active_thread_id: null,
+          threads: manager.snapshot({}, routeExec(request)).threads ?? [],
           model: null,
           effort: null,
           total_turns: 0,
@@ -240,6 +254,62 @@ function acceptReadRequest(ctx, request, response) {
     return false;
   }
   return true;
+}
+
+function acceptApplyRequest(ctx, request, response) {
+  if (request.method !== 'POST') {
+    writeJson(response, 405, { error: 'method-not-allowed' }, { allow: 'POST' });
+    return false;
+  }
+  if (!isDesktopHost(ctx)) {
+    let connection;
+    try {
+      connection = ctx.get('connection');
+    } catch {
+      connection = null;
+    }
+    if (connection && typeof connection.requestRejection === 'function') {
+      let rejection;
+      try {
+        rejection = connection.requestRejection(request);
+      } catch {
+        rejection = 403;
+      }
+      if (rejection !== undefined && rejection !== null) {
+        writeJson(response, rejection, { error: 'unauthorized' });
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function readJsonBody(request, maxBytes = 64 * 1024) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    request.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > maxBytes) {
+        reject(new Error('body too large'));
+        request.destroy?.();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    request.on('end', () => {
+      if (size === 0) {
+        resolve({});
+        return;
+      }
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      } catch (err) {
+        reject(err);
+      }
+    });
+    request.on('error', reject);
+  });
 }
 
 function routeExec(request) {

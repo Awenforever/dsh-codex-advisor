@@ -138,6 +138,11 @@ window.__ModuleLoader__.load({
       source: 'source',
       version: 'version',
       updateAvailable: 'Update available',
+      checking: 'Checking…',
+      upToDate: 'Up to date',
+      updateFailed: 'Update check failed',
+      checkForUpdates: 'Check for updates',
+      cardNoThread: 'No Codex thread yet',
       cardEmpty: 'Ask Codex in the conversation',
       cardNoSession: 'Open a conversation to use it',
       cardFailed: 'The last turn did not complete',
@@ -203,36 +208,57 @@ window.__ModuleLoader__.load({
       const t = props.t;
       const version = typeof props.version === 'string' && props.version ? props.version.replace(/^v/i, '') : null;
       const update = props.update;
+      const checking = Boolean(props.checking);
+      const notice = props.notice ?? null;
       const title = update?.updateAvailable
-        ? `${t('updateAvailable')}${update.latestVersion ? `: v${update.latestVersion}` : ''}`
-        : undefined;
-      const style = {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        color: 'var(--dsw-alias-label-secondary)',
-        fontSize: 10.5,
-        whiteSpace: 'nowrap',
-      };
-      const content = [
-        version ? h('span', { key: 'version' }, `v${version}`) : null,
+        ? `${t('updateAvailable')}${update.latestVersion ? ` v${update.latestVersion}` : ''}`
+        : checking
+          ? t('checking')
+          : (notice || t('checkForUpdates'));
+      return h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 3, minWidth: 0 } },
+        h('button', {
+          type: 'button',
+          title,
+          'aria-label': `${t('checkForUpdates')}: ${title}`,
+          disabled: checking,
+          onClick: () => { void props.onCheck?.(); },
+          style: {
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 2,
+            padding: 0,
+            border: 0,
+            background: 'transparent',
+            color: 'var(--dsw-alias-label-secondary)',
+            fontSize: 8.5,
+            lineHeight: 1.2,
+            whiteSpace: 'nowrap',
+            cursor: checking ? 'default' : 'pointer',
+            opacity: checking ? 0.6 : 1,
+          },
+        },
+        version ? `v${version}` : null,
         update?.updateAvailable
           ? h('span', {
-            key: 'dot',
-            style: { width: 6, height: 6, borderRadius: 99, background: '#ef4444', display: 'inline-block' },
+            style: {
+              width: 5,
+              height: 5,
+              borderRadius: 99,
+              background: 'var(--dsw-alias-state-error-primary, #dc2626)',
+              display: 'inline-block',
+            },
+            'aria-hidden': true,
           })
-          : null,
-      ].filter(Boolean);
-      if (update?.updateAvailable && update.releaseUrl) {
-        return h('a', {
-          href: update.releaseUrl,
-          target: '_blank',
-          rel: 'noreferrer',
-          title,
-          style: { ...style, textDecoration: 'none', cursor: 'pointer' },
-        }, ...content);
-      }
-      return h('span', { title, style }, ...content);
+          : null),
+        notice ? h('span', {
+          style: {
+            color: 'var(--dsw-alias-label-secondary)',
+            fontSize: 7.5,
+            lineHeight: 1.2,
+            whiteSpace: 'nowrap',
+          },
+        }, notice) : null,
+      );
     }
 
     let updateCache = null;
@@ -242,7 +268,7 @@ window.__ModuleLoader__.load({
     async function loadUpdate(force = false) {
       if (!force && updateCache && Date.now() - updateCacheAt < 6 * 60 * 60 * 1000) return updateCache;
       if (updateInFlight) return updateInFlight;
-      updateInFlight = getJson(UPDATE_ENDPOINT)
+      updateInFlight = getJson(UPDATE_ENDPOINT, force ? { refresh: '1' } : {})
         .then((value) => {
           if (value && !value.error) {
             updateCache = value;
@@ -256,36 +282,276 @@ window.__ModuleLoader__.load({
     }
 
     function useUpdate() {
-      const [value, setValue] = React.useState(updateCache);
+      const [state, setState] = React.useState({ value: updateCache, checking: false, notice: null });
+      const noticeTimer = React.useRef(null);
+      const showNotice = React.useCallback((text) => {
+        if (noticeTimer.current) clearTimeout(noticeTimer.current);
+        setState((current) => ({ ...current, notice: text }));
+        noticeTimer.current = setTimeout(() => {
+          setState((current) => ({ ...current, notice: null }));
+        }, 6000);
+      }, []);
+      const check = React.useCallback(async (manual = true) => {
+        if (manual) showNotice(fallbackT('checking'));
+        setState((current) => ({ ...current, checking: true }));
+        try {
+          const next = await loadUpdate(manual);
+          if (!next || next.error) {
+            if (manual) showNotice(fallbackT('updateFailed'));
+            setState((current) => ({ ...current, checking: false }));
+            return null;
+          }
+          setState((current) => ({ ...current, value: next, checking: false }));
+          if (manual) {
+            showNotice(next.updateAvailable
+              ? `${fallbackT('updateAvailable')}${next.latestVersion ? ` v${next.latestVersion}` : ''}`
+              : fallbackT('upToDate'));
+          }
+          return next;
+        } catch {
+          if (manual) showNotice(fallbackT('updateFailed'));
+          setState((current) => ({ ...current, checking: false }));
+          return null;
+        }
+      }, [showNotice]);
       React.useEffect(() => {
         let alive = true;
-        let retry = null;
-        const load = async () => {
-          const next = await loadUpdate();
-          if (!alive) return;
-          setValue(next);
-          if (!next || next.error) {
-            if (!retry) retry = setTimeout(load, 5 * 60 * 1000);
-          } else if (retry) {
-            clearTimeout(retry);
-            retry = null;
-          }
-        };
-        load();
-        const timer = setInterval(load, 6 * 60 * 60 * 1000);
+        const boot = setTimeout(async () => {
+          const next = await loadUpdate(false);
+          if (alive && next) setState((current) => ({ ...current, value: next }));
+        }, 1200);
+        const daily = setInterval(async () => {
+          const next = await loadUpdate(false);
+          if (alive && next) setState((current) => ({ ...current, value: next }));
+        }, 24 * 60 * 60 * 1000);
         return () => {
           alive = false;
-          clearInterval(timer);
-          if (retry) clearTimeout(retry);
+          clearTimeout(boot);
+          clearInterval(daily);
+          if (noticeTimer.current) clearTimeout(noticeTimer.current);
         };
       }, []);
-      return value;
+      return { ...state, check };
+    }
+
+    async function applyUpdate(spec) {
+      const url = new URL('plugins/dsh-codex-advisor/update/apply', document.baseURI);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 120000);
+      try {
+        const response = await fetch(url.pathname, {
+          method: 'POST',
+          cache: 'no-store',
+          headers: { 'content-type': 'application/json', accept: 'application/json' },
+          body: JSON.stringify({ spec }),
+          signal: controller.signal,
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || body.ok === false) {
+          throw new Error(body.message || body.error || `HTTP ${response.status}`);
+        }
+        return body;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    function UpdateModal(props) {
+      const { update, onClose } = props;
+      const [applying, setApplying] = useStateSafe(false);
+      const [result, setResult] = useStateSafe(null);
+      const [error, setError] = useStateSafe(null);
+      const [copied, setCopied] = useStateSafe(false);
+      const latest = update?.latestVersion ?? null;
+      const current = update?.currentVersion ?? null;
+      const canApply = update?.canApply === true && Boolean(update?.spec);
+      const notes = typeof update?.releaseNotes === 'string' ? update.releaseNotes.trim() : '';
+      React.useEffect(() => {
+        const onKey = (event) => {
+          if (event.key === 'Escape' && !applying) onClose();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+      }, [applying, onClose]);
+      const copySpec = async () => {
+        if (!update?.spec) return;
+        try {
+          await navigator.clipboard.writeText(update.spec);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2500);
+        } catch { /* clipboard may be unavailable */ }
+      };
+      const install = async () => {
+        if (!canApply || applying) return;
+        setApplying(true);
+        setError(null);
+        try {
+          const value = await applyUpdate(update.spec);
+          setResult(value);
+        } catch (err) {
+          setError(err?.message ?? String(err));
+        } finally {
+          setApplying(false);
+        }
+      };
+      const secondary = {
+        border: '1px solid var(--dsw-alias-border-l1)',
+        background: 'transparent',
+        color: 'var(--dsw-alias-label-primary)',
+        borderRadius: 8,
+        padding: '6px 12px',
+        fontSize: 12,
+        cursor: 'pointer',
+      };
+      const primary = {
+        ...secondary,
+        background: 'var(--dsw-alias-label-primary)',
+        color: 'var(--dsw-alias-bg-layer-1)',
+        borderColor: 'var(--dsw-alias-label-primary)',
+        fontWeight: 600,
+        cursor: applying ? 'default' : 'pointer',
+        opacity: applying ? 0.6 : 1,
+      };
+      return h('div', {
+        style: {
+          position: 'fixed',
+          inset: 0,
+          zIndex: 10000,
+          background: 'rgba(0, 0, 0, 0.28)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 20,
+        },
+        onMouseDown: (event) => {
+          if (event.target === event.currentTarget && !applying) onClose();
+        },
+      },
+      h('div', {
+        role: 'dialog',
+        'aria-modal': 'true',
+        'aria-label': 'Codex advisor update',
+        style: {
+          width: 'min(520px, 100%)',
+          maxHeight: 'min(720px, 90vh)',
+          overflowY: 'auto',
+          boxSizing: 'border-box',
+          border: '1px solid var(--dsw-alias-border-l1)',
+          borderRadius: 14,
+          background: 'var(--dsw-alias-bg-layer-1)',
+          color: 'var(--dsw-alias-label-primary)',
+          padding: '18px 20px',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.25)',
+        },
+      },
+      h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 } },
+        h('div', { style: { fontSize: 16, fontWeight: 650 } }, 'Update available'),
+        h('button', {
+          type: 'button',
+          onClick: onClose,
+          disabled: applying,
+          'aria-label': 'Close',
+          style: {
+            marginLeft: 'auto',
+            border: 0,
+            background: 'transparent',
+            color: 'var(--dsw-alias-label-secondary)',
+            fontSize: 18,
+            lineHeight: 1,
+            cursor: applying ? 'default' : 'pointer',
+          },
+        }, '×'),
+      ),
+      h('div', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 11.5, marginBottom: 14 } },
+        `v${current ?? '?'} → v${latest ?? '?'}${update?.releaseName ? ` · ${update.releaseName}` : ''}`),
+      notes ? h('pre', {
+        style: {
+          margin: '0 0 14px',
+          padding: '10px 12px',
+          maxHeight: 220,
+          overflow: 'auto',
+          border: '1px solid var(--dsw-alias-border-l1)',
+          borderRadius: 8,
+          background: 'var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1))',
+          color: 'var(--dsw-alias-label-secondary)',
+          fontSize: 11,
+          lineHeight: 1.55,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          fontFamily: 'inherit',
+        },
+      }, notes) : null,
+      result ? h('div', {
+        style: {
+          marginBottom: 14,
+          padding: '9px 11px',
+          borderRadius: 8,
+          border: '1px solid #bbf7d0',
+          background: 'rgba(220, 252, 231, 0.35)',
+          color: '#166534',
+          fontSize: 12,
+          lineHeight: 1.55,
+        },
+      }, 'Update installed. Quit and reopen DSH to load the new Codex advisor client.') : null,
+      error ? h('div', {
+        style: {
+          marginBottom: 14,
+          padding: '9px 11px',
+          borderRadius: 8,
+          border: '1px solid #fecaca',
+          background: 'rgba(254, 226, 226, 0.3)',
+          color: '#b91c1c',
+          fontSize: 12,
+          lineHeight: 1.55,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+        },
+      }, error) : null,
+      !canApply && !result ? h('div', {
+        style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 11.5, lineHeight: 1.55, marginBottom: 12 },
+      }, 'Automatic install is unavailable in this host. Open the release or copy the archive spec and install it with the plugin manager.') : null,
+      update?.provider?.label ? h('div', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10, marginBottom: 14 } },
+        `Update provider: ${update.provider.label}`) : null,
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+        update?.releaseUrl ? h('a', {
+          href: update.releaseUrl,
+          target: '_blank',
+          rel: 'noreferrer',
+          style: { color: 'var(--dsw-alias-label-primary)', fontSize: 12, textDecoration: 'underline', textUnderlineOffset: 2 },
+        }, 'Open release') : null,
+        update?.spec ? h('button', { type: 'button', style: secondary, onClick: copySpec }, copied ? 'Copied' : 'Copy spec') : null,
+        h('span', { style: { marginLeft: 'auto' } }),
+        h('button', { type: 'button', style: secondary, onClick: onClose, disabled: applying }, 'Close'),
+        canApply ? h('button', { type: 'button', style: primary, onClick: install, disabled: applying }, applying ? 'Installing…' : 'Install update') : null,
+      ),
+      ),
+      );
+    }
+
+    function useStateSafe(initial) {
+      return React.useState(initial);
+    }
+
+    function activitySummary(activity) {
+      if (!activity || typeof activity !== 'object') return '';
+      const commands = Array.isArray(activity.commands) ? activity.commands : [];
+      const files = Array.isArray(activity.files) ? activity.files : [];
+      const parts = [];
+      if (commands.length > 0) {
+        const first = String(commands[0]?.command ?? '').trim();
+        parts.push(first ? `$ ${first}` : `${commands.length} command${commands.length === 1 ? '' : 's'}`);
+      }
+      if (files.length > 0) parts.push(`${files.length} file${files.length === 1 ? '' : 's'}`);
+      if (activity.declined > 0) parts.push(`${activity.declined} declined`);
+      return parts.join(' · ');
     }
 
     function CodexCard(props) {
       const t = useT(props);
       const sessionId = useActiveSession();
-      const update = useUpdate();
+      const updateState = useUpdate();
+      const [updateOpen, setUpdateOpen] = React.useState(false);
+      const [modalUpdate, setModalUpdate] = React.useState(null);
       const [snapshot, setSnapshot] = React.useState(null);
       const [error, setError] = React.useState(null);
       const [loading, setLoading] = React.useState(false);
@@ -314,13 +580,26 @@ window.__ModuleLoader__.load({
         return () => clearInterval(timer);
       }, [load]);
 
+      const checkUpdates = React.useCallback(async () => {
+        const next = await updateState.check(true);
+        if (next?.updateAvailable) {
+          setModalUpdate(next);
+          setUpdateOpen(true);
+        }
+      }, [updateState.check]);
+
+      const threads = Array.isArray(snapshot?.threads) ? snapshot.threads : [];
+      const activeThread = threads.find((thread) => thread.active) ?? threads[0] ?? null;
       const failure = snapshot?.last_failure ?? null;
       const answer = typeof snapshot?.last_answer === 'string' ? snapshot.last_answer.trim() : '';
+      const lastAsk = typeof snapshot?.last_ask === 'string' ? snapshot.last_ask.trim() : '';
       const failureAt = toDate(failure?.at)?.getTime() ?? 0;
       const answerAt = toDate(snapshot?.last_answer_at)?.getTime() ?? 0;
+      const askAt = toDate(snapshot?.last_ask_at)?.getTime() ?? 0;
       const failed = Boolean(failure && failureAt >= answerAt);
       const hasAnswer = !failed && Boolean(answer);
-      const pending = !failed && !hasAnswer && Boolean(snapshot?.thread_id) && Boolean(snapshot?.last_ask_at);
+      const hasThread = Boolean(activeThread || snapshot?.thread_id);
+      const pending = !failed && !hasAnswer && hasThread && Boolean(lastAsk || askAt);
       const status = !sessionId
         ? 'no-session'
         : failed
@@ -329,7 +608,7 @@ window.__ModuleLoader__.load({
             ? 'ready'
             : pending
               ? 'pending'
-              : snapshot?.thread_id
+              : hasThread
                 ? 'bound'
                 : 'empty';
       const statusLabel = status === 'no-session'
@@ -350,24 +629,35 @@ window.__ModuleLoader__.load({
           : (status === 'pending' || status === 'bound')
             ? '#d97706'
             : 'var(--dsw-alias-label-secondary)';
-      const meta = [snapshot?.model, snapshot?.effort].filter(Boolean).join(' · ');
-      const body = !sessionId
+      const when = failed
+        ? formatWhen(failure?.at, t)
+        : hasAnswer
+          ? formatWhen(snapshot?.last_answer_at, t)
+          : hasThread
+            ? formatWhen(snapshot?.last_ask_at, t)
+            : '';
+      const version = snapshot?.source?.version ?? updateState.value?.currentVersion ?? null;
+      const modelEffort = [activeThread?.model ?? snapshot?.model, activeThread?.effort ?? snapshot?.effort].filter(Boolean).join(' · ');
+      const threadLabel = activeThread?.label ?? snapshot?.label ?? null;
+      const threadCount = threads.length;
+      const turnCount = activeThread?.turnCount ?? snapshot?.asks ?? 0;
+      const activity = activitySummary(activeThread?.activity ?? snapshot?.last_activity);
+      const answerText = !sessionId
         ? t('cardNoSession')
         : failed
           ? (failure?.message || t('cardFailed'))
           : hasAnswer
             ? answer
             : pending
-              ? t('cardPending')
-              : t('cardEmpty');
-      const when = failed
-        ? formatWhen(failure?.at, t)
+              ? t('cardWaiting')
+              : hasThread
+                ? t('cardEmpty')
+                : t('cardNoThread');
+      const answerColor = failed
+        ? '#b91c1c'
         : hasAnswer
-          ? formatWhen(snapshot?.last_answer_at, t)
-          : snapshot?.thread_id
-            ? formatWhen(snapshot?.last_ask_at, t)
-            : '';
-      const version = snapshot?.source?.version ?? update?.currentVersion ?? null;
+          ? 'var(--dsw-alias-label-primary)'
+          : 'var(--dsw-alias-label-secondary)';
 
       return h('div', {
         style: {
@@ -378,56 +668,109 @@ window.__ModuleLoader__.load({
           order: 1,
           gridColumn: '1 / -1',
           margin: '0 0 6px',
-          padding: '10px 11px 9px',
+          padding: '9px 10px 8px',
           border: '1px solid var(--dsw-alias-border-l1)',
           borderRadius: 12,
           background: 'var(--dsw-alias-bg-layer-1)',
           color: 'var(--dsw-alias-label-primary)',
           display: 'flex',
           flexDirection: 'column',
-          gap: 6,
+          gap: 4,
         },
         role: 'group',
         'aria-label': t('cardTitle'),
       },
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 } },
-        h('span', { style: { fontWeight: 650, fontSize: 13, whiteSpace: 'nowrap' } }, t('cardTitle')),
-        h('span', { style: { marginLeft: 'auto' } }, h(VersionBadge, { t, update, version })),
+        h('span', { style: { fontWeight: 650, fontSize: 12.5, whiteSpace: 'nowrap' } }, t('cardTitle')),
+        h('span', { style: { marginLeft: 'auto' } }, h(VersionBadge, {
+          t,
+          update: updateState.value,
+          checking: updateState.checking,
+          notice: updateState.notice,
+          onCheck: checkUpdates,
+          version,
+        })),
       ),
-      h('div', { style: { display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 } },
-        h('span', { style: { width: 7, height: 7, borderRadius: 99, background: statusColor, flex: '0 0 auto' } }),
-        h('span', { style: { fontSize: 11.5, whiteSpace: 'nowrap' } }, statusLabel),
-        meta ? h('span', {
-          style: {
-            marginLeft: 'auto',
-            minWidth: 0,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            color: 'var(--dsw-alias-label-secondary)',
-            fontSize: 10.5,
-          },
-        }, meta) : null,
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 } },
+        h('span', { style: { width: 6, height: 6, borderRadius: 99, background: statusColor, flex: '0 0 auto' } }),
+        h('span', { style: { fontSize: 11, whiteSpace: 'nowrap' } }, statusLabel),
+        turnCount > 0 ? h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 9.5, whiteSpace: 'nowrap' } }, `${turnCount} ${t('rounds')}`) : null,
+        when ? h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 9.5, whiteSpace: 'nowrap' } }, when) : null,
+        threadCount > 1 ? h('span', { style: { marginLeft: 'auto', color: 'var(--dsw-alias-label-secondary)', fontSize: 9.5, whiteSpace: 'nowrap' } }, `${threadCount} threads`) : null,
       ),
-      h('div', {
+      hasThread ? h('div', {
         style: {
-          margin: 0,
-          color: status === 'failed' ? '#b91c1c' : (hasAnswer ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-secondary)'),
-          fontSize: 12,
-          lineHeight: 1.5,
-          display: '-webkit-box',
-          WebkitBoxOrient: 'vertical',
-          WebkitLineClamp: 3,
+          color: 'var(--dsw-alias-label-secondary)',
+          fontSize: 9.5,
+          lineHeight: 1.35,
+          whiteSpace: 'nowrap',
           overflow: 'hidden',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
+          textOverflow: 'ellipsis',
+          minWidth: 0,
         },
-      }, body),
-      h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5, minWidth: 0 } },
-        when ? h('span', null, `${t('lastActivity')} ${when}`) : null,
-        error ? h('span', { title: error, style: { marginLeft: 'auto', color: '#b91c1c' } }, t('error')) : null,
-        loading && !snapshot ? h('span', { style: { marginLeft: 'auto' } }, t('loading')) : null,
-      ));
+        title: threadLabel ?? '',
+      }, `Thread · ${threadLabel ?? 'Untitled'}`) : null,
+      lastAsk ? h('div', { style: { minWidth: 0 } },
+        h('div', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 8.5, marginBottom: 1 } }, 'Ask'),
+        h('div', {
+          style: {
+            fontSize: 11,
+            lineHeight: 1.4,
+            color: 'var(--dsw-alias-label-primary)',
+            display: '-webkit-box',
+            WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: 2,
+            overflow: 'hidden',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          },
+        }, lastAsk),
+      ) : null,
+      h('div', { style: { minWidth: 0 } },
+        h('div', { style: { color: failed ? '#b91c1c' : 'var(--dsw-alias-label-secondary)', fontSize: 8.5, marginBottom: 1 } }, failed ? 'Failure' : 'Codex'),
+        h('div', {
+          style: {
+            color: answerColor,
+            fontSize: 11.5,
+            lineHeight: 1.45,
+            display: '-webkit-box',
+            WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: 2,
+            overflow: 'hidden',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          },
+        }, answerText || t('cardNoThread')),
+      ),
+      (activity || error || loading) ? h('div', {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          color: 'var(--dsw-alias-label-secondary)',
+          fontSize: 9,
+          minWidth: 0,
+        },
+      },
+        activity ? h('span', { title: activity, style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 } }, activity) : null,
+        error ? h('span', { title: error, style: { marginLeft: 'auto', color: '#b91c1c', whiteSpace: 'nowrap' } }, t('error')) : null,
+        loading && !snapshot ? h('span', { style: { marginLeft: 'auto', whiteSpace: 'nowrap' } }, t('loading')) : null,
+      ) : null,
+      modelEffort ? h('div', {
+        style: {
+          color: 'var(--dsw-alias-label-secondary)',
+          fontSize: 9,
+          lineHeight: 1.2,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        },
+      }, modelEffort) : null,
+      updateOpen && modalUpdate ? h(UpdateModal, {
+        update: modalUpdate,
+        onClose: () => setUpdateOpen(false),
+      }) : null,
+      );
     }
 
     function TurnCard(props) {
@@ -436,71 +779,140 @@ window.__ModuleLoader__.load({
       const when = formatWhen(turn.created_at, t);
       const commands = Array.isArray(turn.commands) ? turn.commands : [];
       const files = Array.isArray(turn.files) ? turn.files : [];
-      return h('div', { style: { position: 'relative', marginBottom: 16 } },
-        h('span', {
-          style: {
-            position: 'absolute',
-            left: -20,
-            top: 6,
-            width: 10,
-            height: 10,
-            borderRadius: 99,
-            background: meta.color,
-            border: '2px solid var(--dsw-alias-bg-layer-1)',
-            boxSizing: 'border-box',
-          },
-        }),
+      const failed = turn.status === 'failed' || Boolean(turn.error);
+      const footnote = [turn.model, turn.effort].filter(Boolean).join(' · ');
+      const activityLabel = [
+        commands.length > 0 ? `${commands.length} command${commands.length === 1 ? '' : 's'}` : null,
+        files.length > 0 ? `${files.length} file${files.length === 1 ? '' : 's'}` : null,
+      ].filter(Boolean).join(' · ');
+      return h('article', {
+        style: {
+          position: 'relative',
+          borderLeft: `2px solid ${meta.color}`,
+          padding: '0 0 2px 15px',
+          marginBottom: 24,
+          minWidth: 0,
+        },
+      },
+      h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 9, minWidth: 0 } },
+        h('span', { style: { color: meta.color, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' } }, meta.label),
+        when ? h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10 } }, when) : null,
+      ),
+      turn.ask ? h('div', {
+        style: {
+          marginBottom: 13,
+          padding: '9px 11px',
+          borderRadius: 8,
+          background: 'var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1))',
+          border: '1px solid var(--dsw-alias-border-l1)',
+          minWidth: 0,
+        },
+      },
+      h('div', {
+        style: {
+          color: 'var(--dsw-alias-label-secondary)',
+          fontSize: 9.5,
+          lineHeight: 1.2,
+          marginBottom: 3,
+        },
+      }, 'Ask'),
+      h('div', {
+        style: {
+          color: 'var(--dsw-alias-label-primary)',
+          fontSize: 12.5,
+          lineHeight: 1.6,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          maxWidth: 720,
+        },
+      }, turn.ask),
+      ) : null,
+      h('div', { style: { minWidth: 0 } },
         h('div', {
           style: {
-            border: '1px solid var(--dsw-alias-border-l1)',
-            borderRadius: 12,
-            padding: '13px 15px',
-            background: 'var(--dsw-alias-bg-layer-1)',
-            minWidth: 0,
+            color: failed ? '#b91c1c' : 'var(--dsw-alias-label-secondary)',
+            fontSize: 9.5,
+            lineHeight: 1.2,
+            marginBottom: 4,
           },
+        }, failed ? 'Failure' : 'Codex'),
+        turn.answer ? h('div', {
+          style: {
+            color: 'var(--dsw-alias-label-primary)',
+            fontSize: 13.5,
+            lineHeight: 1.68,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            maxWidth: 720,
+          },
+        }, turn.answer) : h('div', {
+          style: {
+            color: 'var(--dsw-alias-label-secondary)',
+            fontSize: 12.5,
+            lineHeight: 1.55,
+          },
+        }, failed ? (turn.error ?? t('noAnswer')) : t('noAnswer')),
+      ),
+      failed && turn.answer && turn.error ? h('div', {
+        style: {
+          marginTop: 9,
+          padding: '8px 10px',
+          border: '1px solid #fecaca',
+          borderRadius: 8,
+          background: 'rgba(254, 226, 226, 0.28)',
+          color: '#b91c1c',
+          fontSize: 11.5,
+          lineHeight: 1.5,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
         },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 } },
-          h('span', { style: { color: meta.color, fontSize: 11.5, fontWeight: 600 } }, meta.label),
-          when ? h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5 } }, when) : null,
-        ),
-        turn.ask ? h('div', { style: { marginBottom: 10 } },
-          h('div', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5, marginBottom: 3 } }, t('ask')),
-          h('div', { style: { whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.6, fontSize: 13 } }, turn.ask),
-        ) : null,
-        turn.answer ? h('div', { style: { borderTop: '1px solid var(--dsw-alias-border-l1)', paddingTop: 10 } },
-          h('div', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5, marginBottom: 3 } }, t('answer')),
-          h('div', { style: { whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.65, fontSize: 13 } }, turn.answer),
-        ) : h('div', { style: { borderTop: '1px solid var(--dsw-alias-border-l1)', paddingTop: 10 } },
-          h('div', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5, marginBottom: 3 } }, t('answer')),
-          turn.error
-            ? h('div', { style: { color: '#b91c1c', fontSize: 12, lineHeight: 1.55, whiteSpace: 'pre-wrap', wordBreak: 'break-word' } }, turn.error)
-            : h('div', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 12 } }, t('noAnswer')),
-        ),
-        turn.error && turn.answer ? h('div', { style: { marginTop: 8, color: '#b91c1c', fontSize: 11.5, lineHeight: 1.5 } }, `${t('failedReason')}: ${turn.error}`) : null,
-        (commands.length > 0 || files.length > 0) ? h('div', { style: { marginTop: 11, borderTop: '1px solid var(--dsw-alias-border-l1)', paddingTop: 9 } },
-          h('div', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5, marginBottom: 5 } }, t('activity')),
-          commands.length > 0 ? h('div', { style: { marginBottom: files.length > 0 ? 7 : 0 } },
-            h('div', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5, marginBottom: 3 } }, t('commands')),
-            commands.map((command, index) => h('code', {
-              key: index,
-              style: {
-                display: 'block',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                fontSize: 11,
-                color: 'var(--dsw-alias-label-secondary)',
-                lineHeight: 1.7,
-              },
-            }, `${command.command ?? ''}${command.status ? `  [${command.status}]` : ''}`)),
-          ) : null,
-          files.length > 0 ? h('div', null,
-            h('div', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5, marginBottom: 3 } }, t('files')),
-            h('div', { style: { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, color: 'var(--dsw-alias-label-secondary)', whiteSpace: 'pre-wrap', wordBreak: 'break-all', lineHeight: 1.7 } }, files.join('\n')),
-          ) : null,
-        ) : null,
-        ),
+      }, turn.error) : null,
+      (commands.length > 0 || files.length > 0) ? h('details', {
+        style: {
+          marginTop: 12,
+          color: 'var(--dsw-alias-label-secondary)',
+          fontSize: 10.5,
+          lineHeight: 1.55,
+        },
+      },
+      h('summary', { style: { cursor: 'pointer', userSelect: 'none' } }, `Activity${activityLabel ? ` · ${activityLabel}` : ''}`),
+      commands.length > 0 ? h('div', { style: { marginTop: 7 } },
+        commands.map((command, index) => h('div', {
+          key: index,
+          style: {
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+            fontSize: 10.5,
+            lineHeight: 1.7,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            color: 'var(--dsw-alias-label-secondary)',
+          },
+        }, `$ ${command.command ?? ''}${command.status ? `  [${command.status}]` : ''}`)),
+      ) : null,
+      files.length > 0 ? h('div', {
+        style: {
+          marginTop: 6,
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          fontSize: 10.5,
+          lineHeight: 1.7,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-all',
+          color: 'var(--dsw-alias-label-secondary)',
+        },
+      }, files.join('\n')) : null,
+      ) : null,
+      footnote ? h('div', {
+        style: {
+          marginTop: 10,
+          color: 'var(--dsw-alias-label-secondary)',
+          fontSize: 9.5,
+          lineHeight: 1.2,
+          textAlign: 'right',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        },
+      }, footnote) : null,
       );
     }
 
@@ -508,10 +920,18 @@ window.__ModuleLoader__.load({
       const t = useT(props);
       const active = useActiveSession();
       const sessionId = typeof props.sessionId === 'string' && props.sessionId ? props.sessionId : active;
-      const update = useUpdate();
+      const updateState = useUpdate();
+      const [updateOpen, setUpdateOpen] = React.useState(false);
+      const [modalUpdate, setModalUpdate] = React.useState(null);
       const [data, setData] = React.useState(null);
       const [error, setError] = React.useState(null);
       const [loading, setLoading] = React.useState(false);
+      const [selected, setSelected] = React.useState(null);
+
+      React.useEffect(() => {
+        setSelected(null);
+        setData(null);
+      }, [sessionId]);
 
       const load = React.useCallback(async () => {
         if (!sessionId) {
@@ -521,24 +941,38 @@ window.__ModuleLoader__.load({
         }
         setLoading(true);
         try {
-          const value = await getJson(HISTORY_ENDPOINT, { session_id: sessionId, limit: 20 }, { timeoutMs: 60000 });
+          const value = await getJson(HISTORY_ENDPOINT, {
+            session_id: sessionId,
+            thread: selected || undefined,
+            limit: 20,
+          }, { timeoutMs: 60000 });
           setData(value);
           setError(null);
+          if (!selected && value?.thread_id) setSelected(value.thread_id);
         } catch (err) {
           setError(err?.message ?? String(err));
         } finally {
           setLoading(false);
         }
-      }, [sessionId]);
+      }, [sessionId, selected]);
 
       React.useEffect(() => { load(); }, [load]);
 
+      const checkUpdates = React.useCallback(async () => {
+        const next = await updateState.check(true);
+        if (next?.updateAvailable) {
+          setModalUpdate(next);
+          setUpdateOpen(true);
+        }
+      }, [updateState.check]);
+
       const turns = Array.isArray(data?.turns) ? data.turns : [];
-      const model = data?.model ?? data?.source?.model ?? null;
-      const effort = data?.effort ?? data?.source?.effort ?? null;
-      const version = data?.source?.version ?? update?.currentVersion ?? null;
+      const threads = Array.isArray(data?.threads) ? data.threads : [];
+      const currentThread = threads.find((thread) => thread.threadId === (selected ?? data?.thread_id))
+        ?? threads.find((thread) => thread.active)
+        ?? null;
+      const version = data?.source?.version ?? updateState.value?.currentVersion ?? null;
       const lastAt = turns.length > 0 ? turns[turns.length - 1].created_at : null;
-      const meta = [model, effort].filter(Boolean).join(' · ');
 
       const buttonStyle = {
         border: '1px solid var(--dsw-alias-border-l1)',
@@ -546,9 +980,20 @@ window.__ModuleLoader__.load({
         color: 'var(--dsw-alias-label-primary)',
         borderRadius: 9,
         padding: '5px 11px',
-        fontSize: 12,
+        fontSize: 11.5,
         cursor: loading ? 'default' : 'pointer',
         opacity: loading ? 0.6 : 1,
+      };
+      const selectStyle = {
+        maxWidth: 300,
+        minWidth: 0,
+        border: '1px solid var(--dsw-alias-border-l1)',
+        borderRadius: 8,
+        background: 'transparent',
+        color: 'var(--dsw-alias-label-primary)',
+        fontSize: 11,
+        padding: '4px 7px',
+        font: 'inherit',
       };
 
       return h('div', {
@@ -556,45 +1001,91 @@ window.__ModuleLoader__.load({
           height: '100%',
           overflowY: 'auto',
           boxSizing: 'border-box',
-          padding: '28px 32px 120px',
+          padding: '28px 32px 110px',
           color: 'var(--dsw-alias-label-primary)',
         },
       },
-      h('div', { style: { maxWidth: 860, margin: '0 auto' } },
+      h('div', { style: { maxWidth: 780, margin: '0 auto' } },
         h('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 22 } },
-          h('div', { style: { minWidth: 0 } },
-            h('div', { style: { display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' } },
+          h('div', { style: { minWidth: 0, flex: '1 1 auto' } },
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' } },
               h('h1', { style: { margin: 0, fontSize: 20, fontWeight: 650, letterSpacing: '-0.01em' } }, t('tabTitle')),
-              h(VersionBadge, { t, update, version }),
+              h(VersionBadge, {
+                t,
+                update: updateState.value,
+                checking: updateState.checking,
+                notice: updateState.notice,
+                onCheck: checkUpdates,
+                version,
+              }),
             ),
-            h('div', { style: { marginTop: 10, display: 'flex', gap: 7, flexWrap: 'wrap', color: 'var(--dsw-alias-label-secondary)', fontSize: 11 } },
-              meta ? h('span', { style: { border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 999, padding: '2px 8px' } }, meta) : null,
-              h('span', { style: { border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 999, padding: '2px 8px' } }, `${turns.length} ${t('rounds')}`),
-              lastAt ? h('span', { style: { padding: '2px 8px' } }, `${t('lastActivity')} ${formatWhen(lastAt, t)}`) : null,
+            h('div', { style: { marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 } },
+              threads.length > 0 ? h('label', { style: { display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 } },
+                h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5, whiteSpace: 'nowrap' } }, 'Thread'),
+                h('select', {
+                  value: selected ?? data?.thread_id ?? '',
+                  onChange: (event) => setSelected(event.target.value || null),
+                  style: selectStyle,
+                  'aria-label': 'Codex thread',
+                }, threads.map((thread) => h('option', {
+                  key: thread.threadId,
+                  value: thread.threadId,
+                }, `${thread.label ?? 'Untitled'}${thread.model ? ` · ${thread.model}` : ''}`))),
+              ) : null,
+              h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5, whiteSpace: 'nowrap' } },
+                `${turns.length} ${t('rounds')}`),
+              lastAt ? h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5, whiteSpace: 'nowrap' } }, formatWhen(lastAt, t)) : null,
             ),
           ),
           h('button', { type: 'button', style: { marginLeft: 'auto', ...buttonStyle }, onClick: load, disabled: loading }, t('refresh')),
         ),
-        error ? h('div', { style: { border: '1px solid #fecaca', borderRadius: 12, background: 'rgba(254, 226, 226, 0.35)', color: '#b91c1c', padding: '12px 14px', fontSize: 12.5, lineHeight: 1.55 } }, `${t('error')}: ${error}`) : null,
-        !error && !sessionId ? h('div', { style: { border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 12, padding: '14px 16px', color: 'var(--dsw-alias-label-secondary)', fontSize: 12.5 } }, t('noSession')) : null,
+        error ? h('div', {
+          style: {
+            border: '1px solid #fecaca',
+            borderRadius: 12,
+            background: 'rgba(254, 226, 226, 0.3)',
+            color: '#b91c1c',
+            padding: '12px 14px',
+            fontSize: 12,
+            lineHeight: 1.55,
+          },
+        }, `${t('error')}: ${error}`) : null,
+        !error && !sessionId ? h('div', {
+          style: {
+            border: '1px solid var(--dsw-alias-border-l1)',
+            borderRadius: 12,
+            padding: '14px 16px',
+            color: 'var(--dsw-alias-label-secondary)',
+            fontSize: 12.5,
+          },
+        }, t('noSession')) : null,
         !error && sessionId && loading && !data ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 8 } },
           [0, 1, 2].map((index) => h('div', {
             key: index,
-            style: { height: 12, width: index === 0 ? '42%' : (index === 1 ? '78%' : '62%'), borderRadius: 99, background: 'var(--dsw-alias-border-l1)', opacity: 0.55 },
+            style: {
+              height: 12,
+              width: index === 0 ? '42%' : (index === 1 ? '78%' : '62%'),
+              borderRadius: 99,
+              background: 'var(--dsw-alias-border-l1)',
+              opacity: 0.55,
+            },
           })),
         ) : null,
-        !error && sessionId && !loading && turns.length === 0 ? h('div', { style: { maxWidth: 520, margin: '56px auto 0', textAlign: 'center' } },
+        !error && sessionId && !loading && turns.length === 0 ? h('div', { style: { maxWidth: 520, margin: '52px auto 0', textAlign: 'center' } },
           h('div', { style: { width: 34, height: 34, margin: '0 auto 14px', border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 99, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
             h('span', { style: { width: 6, height: 6, borderRadius: 99, background: '#16a34a' } })),
-          h('div', { style: { fontSize: 15, fontWeight: 600, marginBottom: 6 } }, t('emptyTitle')),
+          h('div', { style: { fontSize: 15, fontWeight: 600, marginBottom: 6 } }, threads.length > 0 ? t('emptyTitle') : t('emptyTitle')),
           h('div', { style: { fontSize: 12.5, lineHeight: 1.6, color: 'var(--dsw-alias-label-secondary)' } }, t('emptyHint')),
         ) : null,
-        turns.length > 0 ? h('div', { style: { position: 'relative', paddingLeft: 24 } },
-          h('div', { style: { position: 'absolute', left: 4, top: 8, bottom: 8, width: 1, background: 'var(--dsw-alias-border-l1)' } }),
+        turns.length > 0 ? h('div', { style: { minWidth: 0 } },
           turns.map((turn) => h(TurnCard, { key: turn.turn_id ?? `${turn.status}-${turn.ask}`, turn, t })),
         ) : null,
-        h('div', { style: { marginTop: 24, color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5 } },
-          `${t('source')} · dsh-codex-advisor${version ? ` v${version}` : ''}`),
+        h('div', { style: { marginTop: 26, color: 'var(--dsw-alias-label-secondary)', fontSize: 9.5 } },
+          `Codex advisor${version ? ` · v${version}` : ''}${currentThread?.model ? ` · ${currentThread.model}` : ''}`),
+        updateOpen && modalUpdate ? h(UpdateModal, {
+          update: modalUpdate,
+          onClose: () => setUpdateOpen(false),
+        }) : null,
       ));
     }
 
@@ -602,7 +1093,7 @@ window.__ModuleLoader__.load({
       inject: ['slots', 'locale'],
       apply(ctx) {
         fallbackT = ctx.locale.bind(NS);
-        ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-codex-advisor: locale dictionaries');
+        ctx.effect(() => ctx.locale.register(NS, { zh: en, en }), 'dsh-codex-advisor: locale dictionaries');
         const t = ctx.locale.bind(NS);
         fallbackT = t;
 

@@ -4,20 +4,22 @@
 
 A persistent **Codex advisor** for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) sessions.
 
-One DSH session keeps **one Codex thread**: ask for a plan, change the plan mid-course, and request a final acceptance review without re-sending the conversation. The binding survives DSH restarts. Codex runs through the official `codex app-server` protocol under the user's existing ChatGPT/Codex login, so it uses the user's Codex quota, not a new API key.
+One DSH session can keep **several labeled Codex threads**. Continue a thread for the same objective; start a new one for a genuinely different aspect or a different model class. Codex runs through the official `codex app-server` protocol under the user's existing ChatGPT/Codex login, so it uses the user's Codex quota, not a new API key.
+
+Each thread pins its model at creation. Effort can change on every ask. The DSH agent chooses model and effort from task difficulty, ambiguity, and stakes — not from message length. The advisor answers in English.
 
 ## Tools
 
 | Tool | Purpose |
 |---|---|
-| `codex_ask` | Send one new request to the bound thread. Waits up to `wait_seconds`; if the turn is still running, returns `status=running` with a `turn_id`. |
+| `codex_ask` | Send one new request to the active thread, a labeled thread, or a new thread (`new_thread`/`label`/`model`/`effort`/`purpose`). Waits up to `wait_seconds`; if the turn is still running, returns `status=running` with a `turn_id`. |
 | `codex_poll` | Collect a running/finished turn. |
 | `codex_cancel` | Send `turn/interrupt`. |
-| `codex_status` | App-server state/version, bound thread, active turn, quota snapshot, last error. |
-| `codex_history` | Read the bound thread's last N turns: ask, final answer, commands, file changes, with `source` provenance. |
-| `codex_reset` | Start a new thread (the old thread stays in Codex; it is not deleted). |
+| `codex_status` | App-server state, labeled threads, active thread, quota, last error. |
+| `codex_history` | Read any labeled thread's last N turns with per-turn model/effort and activity. |
+| `codex_reset` | Start a new labeled thread (old threads stay in Codex; they are not deleted). |
 
-The advisor thread is bound to the DSH `SessionId`, so reopening the same DSH session resumes it automatically. A new DSH session can attach an existing thread with `codex_ask({ thread_id })`.
+The active thread is bound to the DSH `SessionId`, so reopening the same DSH session resumes it automatically. `codex_ask({ thread: "label" })` continues another thread without losing the active one; `codex_history({ thread: "label" })` reads it without switching.
 
 ## Provenance
 
@@ -33,21 +35,23 @@ The bridge does **not** expose Codex's internal reasoning; it exposes protocol-l
 
 For the design evaluation (tab vs sidebar), see [docs/L2_UI_PLAN.md](docs/L2_UI_PLAN.md).
 
-## UI (0.5.x)
+## UI (0.6.x)
 
-The bundle also ships a client half:
+The bundle ships a client half. All visible copy is English.
 
-- **Codex tab**: registered in `conversation.view` (id `codex-advisor`, order 20). It shows a per-session timeline of asks, answers, failure reasons, commands, files, source, model and effort.
-- **Sidebar card**: registered in `sidebar.footer.action` (id `codex-advisor-card`). It shows the plugin version, status, model/effort, latest answer or failure, and last activity; it no longer exposes the raw thread id.
+- **Codex trail**: registered in `conversation.view` (id `codex-advisor`, order 20). A labeled thread selector, readable ask/answer blocks, collapsible activity, and a per-turn `model · effort` footnote. The selected thread is read without changing the active advisor thread.
+- **Sidebar card**: registered in `sidebar.footer.action` (id `codex-advisor-card`). It is a mini status screen, not a duplicate of the trail: status and turn count, active thread label and thread count, latest ask, latest answer or failure, latest command/file activity, and the current model/effort at the bottom. No raw thread ids.
 - **Session probe**: registered in `conversation.composer.dock` so the card follows the active DSH session.
-- **Update check**: the card and tab check `GET /plugins/dsh-codex-advisor/update` and show a red dot when GitHub has a newer tag. The Host caches the check for six hours; the client also refreshes it every six hours and retries a failed check after five minutes. The red-dot badge links to the release page. This is read-only — installing an update remains a plugin-manager/user action. Client requests are bounded (15s snapshot/update, 60s history).
+- **Version/update**: the tiny (8.5px) version button follows the USTC quota panel behavior: click to force a check, a 5px red dot when a newer release exists, inline checking/up-to-date/failure notice, auto-check 1.2s after load and every 24h, and an update modal with release notes, provider, copy-spec fallback, and install. The Host uses the latest non-prerelease GitHub release, caches it for six hours, and delegates installation to the official `pluginManager`/`pluginUpdates` seam. A client bundle change still requires a full DSH quit/reopen.
+- Client requests are bounded (15s snapshot/update, 60s history).
 
-The Host exposes three read-only same-origin routes used by the client:
+The Host exposes same-origin routes used by the client:
 
 ```text
-GET /plugins/dsh-codex-advisor/snapshot?session_id=…      # no app-server spawn
-GET /plugins/dsh-codex-advisor/history?session_id=…&limit=20
-GET /plugins/dsh-codex-advisor/update                     # GitHub tags, cached
+GET  /plugins/dsh-codex-advisor/snapshot?session_id=…             # no app-server spawn
+GET  /plugins/dsh-codex-advisor/history?session_id=…&thread=…&limit=20
+GET  /plugins/dsh-codex-advisor/update                             # latest release, cached
+POST /plugins/dsh-codex-advisor/update/apply                       # { spec } via provider
 ```
 
 The routes are gated by the DSH connection fence on the Web host and skipped on the Desktop host. The client half is loaded at DSH start; after installing or updating a client bundle, fully quit and reopen DSH.
@@ -72,8 +76,8 @@ The row accepts these fields (all optional):
 | `codexCommand` | `""` | Absolute executable; `""` auto-discovers `%LOCALAPPDATA%\OpenAI\Codex\bin\*\codex.exe`, then `PATH`, then the `@openai/codex` package. |
 | `codexArgv` | `null` | Full argv override (tests/wrappers). Takes precedence over `codexCommand`. |
 | `codexArgs` | `[]` | Extra args after `app-server --stdio`. |
-| `model` | `""` | `""` uses the Codex config (`gpt-6.1-sol` on the reference machine). |
-| `reasoningEffort` | `""` | `""` uses the Codex config; otherwise passed as `turn/start.effort` (for example `low`, `high`, `max`). |
+| `model` | `""` | Fallback model when a new thread has neither `model` nor `purpose`; `""` uses the Codex config. A thread keeps this model for its lifetime. |
+| `reasoningEffort` | `""` | Fallback effort for a new/continued turn; the DSH agent can override per ask. |
 | `sandbox` | `workspace-write` | `read-only` or `workspace-write`. |
 | `approvalPolicy` | `never` | Approval requests are auto-declined; the turn continues with the refusal. |
 | `defaultWaitSeconds` | `180` | `codex_ask` wait default. |
@@ -89,11 +93,12 @@ The row accepts these fields (all optional):
 
 ```
 $DSH_HOME/codex-advisor/
-  state.json     # sessionId -> { threadId, generation, cwd, digest, ... }
+  state.json     # sessionId -> { activeThreadId, threads: { id -> label/model/digest/turnMeta/... } }
   events.ndjson  # bounded diagnostics (activate/ask/resume/error/cancel)
 ```
 
-- `state.json` is replaced atomically (temp file + rename).
+- `state.json` is replaced atomically (temp file + rename). Version 1 state from 0.5.x migrates automatically.
+- A session keeps the active thread at the top level and every alternate thread in `threads`; each has its own digest and per-turn model/effort metadata.
 - On the first ask after a DSH restart, the bridge sends `thread/resume {threadId}`.
 - If Codex reports `no rollout found`, the bridge **fails closed**: starts a new thread, prepends a compact digest (recent asks + last answer) and returns `recovered: "new-thread"`.
 - `active writer` (Codex Desktop holds the thread) maps to `CODEX_THREAD_BUSY`; there is no force-takeover in the app-server protocol.
@@ -109,7 +114,7 @@ $DSH_HOME/codex-advisor/
 
 ## Error codes
 
-`CODEX_NOT_FOUND`, `CODEX_SPAWN_FAILED`, `CODEX_INIT_FAILED`, `CODEX_NOT_LOGGED_IN`, `CODEX_QUOTA_EXCEEDED`, `CODEX_MODEL_UNAVAILABLE`, `CODEX_THREAD_NOT_FOUND`, `CODEX_THREAD_BUSY`, `CODEX_RESUME_FAILED`, `CODEX_TIMEOUT`, `CODEX_CANCELLED`, `CODEX_TURN_FAILED`, `CODEX_TURN_START_FAILED`, `CODEX_CONTEXT_EXCEEDED`, `CODEX_EMPTY_ANSWER`, `CODEX_NO_THREAD`, `CODEX_BAD_ARGS`, `CODEX_BAD_CONFIG`, `CODEX_APP_SERVER_EXITED`, `CODEX_INTERNAL`.
+`CODEX_NOT_FOUND`, `CODEX_SPAWN_FAILED`, `CODEX_INIT_FAILED`, `CODEX_NOT_LOGGED_IN`, `CODEX_QUOTA_EXCEEDED`, `CODEX_MODEL_UNAVAILABLE`, `CODEX_THREAD_NOT_FOUND`, `CODEX_THREAD_BUSY`, `CODEX_THREAD_MODEL_PINNED`, `CODEX_RESUME_FAILED`, `CODEX_TIMEOUT`, `CODEX_CANCELLED`, `CODEX_TURN_FAILED`, `CODEX_TURN_START_FAILED`, `CODEX_CONTEXT_EXCEEDED`, `CODEX_EMPTY_ANSWER`, `CODEX_NO_THREAD`, `CODEX_BAD_ARGS`, `CODEX_BAD_CONFIG`, `CODEX_APP_SERVER_EXITED`, `CODEX_INTERNAL`.
 
 Each tool result carries `code`, `message`, and a short `hint`.
 

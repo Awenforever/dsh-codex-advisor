@@ -77,7 +77,7 @@ test('slow turn returns running, then poll completes it', async () => {
   assert.ok(running.turn_id);
   const done = await manager.poll({ turn_id: running.turn_id, wait_seconds: 5 }, execFor());
   assert.equal(done.status, 'completed');
-  assert.match(done.answer, /pong:slow/);
+  assert.match(done.answer, /slow/);
   await manager.dispose();
 });
 
@@ -89,11 +89,11 @@ test('a completion after an ask timeout is persisted for the card', async () => 
   assert.ok(running.turn_id);
   await new Promise((resolve) => setTimeout(resolve, 2200));
   const snapshot = await manager.snapshot({}, execFor());
-  assert.match(snapshot.last_answer, /pong:slow/);
+  assert.match(snapshot.last_answer, /slow/);
   assert.ok(snapshot.last_answer_at);
   const polled = await manager.poll({ turn_id: running.turn_id, wait_seconds: 0 }, execFor());
   assert.equal(polled.status, 'idle');
-  assert.match(polled.answer, /pong:slow/);
+  assert.match(polled.answer, /slow/);
   await manager.dispose();
 });
 
@@ -151,5 +151,49 @@ test('status reports app-server and binding facts', async () => {
   assert.equal(status.codex.state, 'ready');
   assert.ok(status.thread.thread_id);
   assert.equal(status.config.sandbox, 'workspace-write');
+  await manager.dispose();
+});
+
+test('labeled threads pin a model while effort can vary', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'advisor-mgr-'));
+  const { manager } = makeManager({ dir, statePath: join(dir, 'state.json') });
+  const first = await manager.ask({ message: 'implement a small parser' }, execFor());
+  assert.equal(first.status, 'completed');
+  assert.equal(first.model, 'gpt-6.1-sol');
+  assert.equal(first.effort, 'medium');
+
+  const architecture = await manager.ask({
+    message: 'review the top-level architecture',
+    new_thread: true,
+    label: 'Architecture review',
+    purpose: 'architecture',
+  }, execFor());
+  assert.equal(architecture.status, 'completed');
+  assert.equal(architecture.model, 'gpt-6-astra');
+  assert.equal(architecture.effort, 'max');
+  assert.notEqual(architecture.thread_id, first.thread_id);
+
+  const followUp = await manager.ask({
+    message: 'trace the failure path',
+    thread: 'Architecture review',
+    effort: 'xhigh',
+  }, execFor());
+  assert.equal(followUp.thread_id, architecture.thread_id);
+  assert.equal(followUp.model, 'gpt-6-astra');
+  assert.equal(followUp.effort, 'xhigh');
+
+  await assert.rejects(
+    manager.ask({ message: 'switch model', model: 'gpt-6-luna' }, execFor()),
+    (err) => err.code === 'CODEX_THREAD_MODEL_PINNED',
+  );
+
+  const status = await manager.status({}, execFor());
+  assert.equal(status.threads.length, 2);
+  assert.ok(status.threads.some((thread) => thread.label === 'Architecture review' && thread.model === 'gpt-6-astra'));
+  assert.ok(status.threads.some((thread) => thread.label === 'implement a small parser'));
+
+  const history = await manager.history({ thread: 'Architecture review' }, execFor());
+  assert.equal(history.label, 'Architecture review');
+  assert.ok(history.turns.some((turn) => turn.model === 'gpt-6-astra' && turn.effort === 'xhigh'));
   await manager.dispose();
 });

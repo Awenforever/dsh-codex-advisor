@@ -38,11 +38,48 @@ test('rebinding the same thread keeps the digest; a new thread increments genera
   const next = store.bind('s', { id: 'thr-2' }, {});
   assert.equal(next.generation, 2);
   assert.equal(next.threadId, 'thr-2');
-  assert.equal(next.digest.asks.length, 1);
+  assert.equal(next.digest.asks.length, 0);
 });
 
-test('digest stays under the byte budget', () => {
+test('multiple threads keep independent digests and turn metadata', () => {
   const dir = mkdtempSync(join(tmpdir(), 'advisor-store-'));
+  const store = new AdvisorStore({ dir });
+  store.load();
+  store.bind('s', { id: 'thr-a' }, { label: 'Alpha', model: 'gpt-6.1-sol' });
+  store.recordTurn('s', {
+    ask: 'alpha question',
+    answer: 'alpha answer',
+    turnId: 'ta',
+    model: 'gpt-6.1-sol',
+    effort: 'high',
+  });
+  store.bind('s', { id: 'thr-b' }, { label: 'Beta', model: 'gpt-6-astra' });
+  store.recordTurn('s', {
+    ask: 'beta question',
+    answer: 'beta answer',
+    turnId: 'tb',
+    model: 'gpt-6-astra',
+    effort: 'max',
+  });
+
+  const threads = store.threads('s');
+  assert.equal(threads.length, 2);
+  assert.equal(threads.find((thread) => thread.threadId === 'thr-a').lastAnswer, 'alpha answer');
+  assert.equal(threads.find((thread) => thread.threadId === 'thr-b').model, 'gpt-6-astra');
+  assert.equal(threads.find((thread) => thread.threadId === 'thr-b').active, true);
+
+  const alpha = store.switchThread('s', 'thr-a');
+  assert.equal(alpha.threadId, 'thr-a');
+  assert.equal(alpha.label, 'Alpha');
+  assert.equal(alpha.digest.lastAnswer, 'alpha answer');
+  assert.equal(alpha.turnMeta.ta.effort, 'high');
+
+  const switched = store.threads('s');
+  assert.equal(switched.find((thread) => thread.threadId === 'thr-a').active, true);
+  assert.equal(switched.find((thread) => thread.threadId === 'thr-b').lastAnswer, 'beta answer');
+});
+
+test('digest stays under the byte budget', () => {  const dir = mkdtempSync(join(tmpdir(), 'advisor-store-'));
   const store = new AdvisorStore({ dir, digestBytes: 300 });
   store.load();
   store.bind('s', { id: 'thr' }, {});
