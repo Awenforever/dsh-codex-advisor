@@ -1,6 +1,6 @@
-# Release acceptance — dsh-codex-advisor 0.1.0
+# Release acceptance — dsh-codex-advisor 0.5.1
 
-Status: **development / not yet accepted for production** (see G0 note).
+Status: **accepted for production** (2026-11-05 09:52 +0800); live desktop 0.5.1, new client UI and update check verified after the 09:43 full restart.
 
 ## Environment
 
@@ -32,10 +32,10 @@ Artifacts: `spike/runs/2026-11-02T17-18-59-576Z/`, `…-history/`, `…-writer/`
 Command:
 
 ```powershell
-node --test --test-force-exit test/jsonrpc.test.mjs test/store.test.mjs test/codex.test.mjs test/manager.test.mjs test/manifest.test.mjs
+node --test --test-force-exit test/jsonrpc.test.mjs test/store.test.mjs test/codex.test.mjs test/manager.test.mjs test/manifest.test.mjs test/update.test.mjs test/client.test.mjs
 ```
 
-Result: **25 pass / 0 fail** (2026-11-03). Coverage: JSON-RPC framing/correlation/timeout/abort, state atomicity/digest/eviction, thread start+resume across fake-app-server restarts, missing thread, writer conflict, interrupt, auto-declined approvals, activity files/commands, quota preflight, poll, cancel, reset, manifest/patch/locale checks.
+Result: **29 pass / 0 fail** (2026-11-05). Coverage: JSON-RPC framing/correlation/timeout/abort, state atomicity/digest/eviction, thread start+resume across fake-app-server restarts, missing thread, writer conflict, interrupt, auto-declined approvals, activity files/commands, quota preflight, poll, cancel, reset, manifest/patch/locale checks, update cache invalidation, and client card/panel render smoke.
 
 ## L2 — Host-level harness
 
@@ -45,7 +45,7 @@ Command:
 node test/harness/host-level.mjs
 ```
 
-Result: **PASS**. The plugin's `apply` was invoked with a stub Cordis context; five tools registered; `codex_ask` completed two turns on one fake thread; `codex_status` reported `state=ready`; `codex_reset` produced a new thread; dispose closed the child.
+Result: **PASS**. The plugin's `apply` was invoked with a stub Cordis context; six tools registered; `codex_ask` completed two turns on one fake thread; `codex_status` reported `state=ready`; `codex_reset` produced a new thread; dispose closed the child.
 
 ## L3 — real DSH composition, activation and model-driven runs (isolated profile)
 
@@ -79,7 +79,7 @@ Host `DESKTOP-GB7NLMT` (100.108.63.25), DSH 0.2.1-rc.5, ssh user `king` (elevate
 | actual DSH app launch in the Administrator console | PASS (2026-11-03 12:09 +0800) | interactive scheduled task as `Administrator` (`New-ScheduledTaskPrincipal -LogonType Interactive`), process `SessionId=1`, plugin `activate` pid 5800, CDP `http://127.0.0.1:9222/json` HTTP 200, page `dsh-app://app/` |
 | real Codex on the VM | not planned | decision: VM uses the fake app-server; real Codex e2e stays on invictus |
 
-## L5 — production desktop (desktop-kfscv8c-1, 2026-11-04)
+## L5 — production desktop (desktop-kfscv8c-1, 2026-11-05)
 
 Host `DESKTOP-KFSCV8C`, user `king_`, DSH `0.2.1-rc.5`, profile `desktop`.
 
@@ -89,20 +89,20 @@ Host `DESKTOP-KFSCV8C`, user `king_`, DSH `0.2.1-rc.5`, profile `desktop`.
 | install via `plugin_manager` | PASS | initial 0.1.0, upgraded to 0.2.0, 0.3.0, 0.4.3, 0.5.0, then **0.5.1 cleanly from tag `v0.5.1`** (`application=applied`; dependency updated to the tag; GitHub release published); 6 tools; Host 0.5.1 |
 | tools registered | PASS | Host `Tool.listTools` includes `codex_ask`, `codex_poll`, `codex_cancel`, `codex_status`, `codex_history`, `codex_reset` |
 | model/effort config | PASS | acceptance `model: gpt-6-luna`, `reasoningEffort: low`; after R1 switched to `reasoningEffort: max` (activate `2026-11-04T07:12:50.369Z`) |
-| activation | PASS | `events.ndjson` → `{"event":"activate","pid":9428,...,"t":"2026-11-04T04:03:04.084Z"}`, reloaded `05:14:06.755Z`, `07:12:50.369Z`, `08:34:43.974Z` (0.3.0), after restart `14:45:52.875Z` (pid 41584), 0.5.0 at `16:42:14.121Z`, clean 0.5.0 at `17:42:00.958Z`, and 0.5.1 at `17:51:26.672Z` |
-| GitHub release | PASS | `v0.5.1` release published: https://github.com/Awenforever/dsh-codex-advisor/releases/tag/v0.5.1 ; remote main `e92f147` |
-| provenance / history (L1) | PASS | every result, including failures, carries `source` (`codex-advisor`, plugin 0.5.0, model, effort); `codex_history` on real thread `01a1a54c-e261-7123-979e-3544042de507` returned 2 turns with asks/answers, `model=gpt-6-luna`, `effort=max` |
-| L2 client tab | PASS | slots: `conversation.view` occupant `codex-advisor` order 20 active; live app shows the Codex tab with source/model/effort/thread/turns and the ask card |
-| L2 sidebar card | PASS (old UI) | `sidebar.footer.action` occupant `codex-advisor-card` order 20 active; user's screenshot shows the card at the sidebar foot. 0.5.0 redesign is staged and requires a final full restart. |
-| L2 host routes | PASS | `snapshot` 200; `history` 200 with real turns; deferred `webServer` registration (0.4.3) |
-| L2 update check | PARTIAL (live route stale) | remote tag/release `v0.5.1` exists; the live route still serves the old 0.5.0 closure and cached `latestVersion=0.4.3` until the final Host restart; 6h cache; client retries a failed check after 5 minutes and bounds requests (15s snapshot/update, 60s history); red-dot badge links the release page |
-| L2 update-cache invalidation | PASS (code/tools) | `checkForUpdate` invalidates when `currentVersion` changes, supports `force`, and `apply` calls `resetUpdateCache()`; update unit test covers version change + forced refresh; live route verifies only after restart |
-| L2 client reliability | PASS | client registration smoke; per-request AbortController timeouts; update retry; locale-aware tab label (`label: () => t('tab')`); version displayed from the live Host `source`, not a stale update-check cache; no raw thread ids |
-| L2 UI redesign | PARTIAL (pending restart) | 0.5.0 client file is installed with version/update dot, meaningful card status/last answer/failure, and timeline panel; the running renderer still has the 0.4.3 client until the final full DSH restart |
-| tests | PASS | 29/29 offline tests (including client registration/render smoke, update-check cache and version comparison); L2 harness PASS; failure-path harness PASS (`CODEX_MODEL_UNAVAILABLE`, `poll.last_failure`, `last_failure`, `history.turns[].error`) |
-| CI workflow | PASS | `.github/workflows/ci.yml`; Windows `windows-latest` + Node 22; 29 unit tests + Host harness + failure-path harness; commit `f353291` 2 runs success; https://github.com/Awenforever/dsh-codex-advisor/actions/workflows/ci.yml |
-| L2 live turn | FAIL (external network) | current session thread `01a1a712-a25b-7791-a0de-1ac1f6695911` turn failed: `workspace routing discovery failed` / `codex_error_info: other`; `https://chatgpt.com` timed out (curl 000); `quota-check-failed` in events. Not a plugin/UI failure. |
-| restart | pending for client | Host 0.5.0 loaded; new client half requires a full DSH quit/reopen (renderer cache), not just refresh |
+| activation | PASS | `events.ndjson` → `{"event":"activate","pid":9428,...,"t":"2026-11-04T04:03:04.084Z"}`, reloaded `05:14:06.755Z`, `07:12:50.369Z`, `08:34:43.974Z` (0.3.0), after restart `14:45:52.875Z` (pid 41584), 0.5.0 at `16:42:14.121Z`, clean 0.5.0 at `17:42:00.958Z`, 0.5.1 at `17:51:26.672Z`, and live 0.5.1 at `2026-11-05T01:43:55.471Z` (pid 50980; app started 09:43:49 +0800) |
+| GitHub release | PASS | `v0.5.1` release published: https://github.com/Awenforever/dsh-codex-advisor/releases/tag/v0.5.1 ; remote main `e49633e` |
+| provenance / history (L1) | PASS | every result, including failures, carries `source` (`codex-advisor`, plugin 0.5.1, model, effort); `codex_history` on real thread `01a1a54c-e261-7123-979e-3544042de507` returned 2 turns with asks/answers, `model=gpt-6-luna`, `effort=max` |
+| L2 client tab | PASS (live) | slots: `conversation.view` occupant `codex-advisor` order 20 active; production app shows `对话 / 轨迹 / 看板 / Codex` and the new 0.5.1 Codex panel |
+| L2 sidebar card | PASS (live 0.5.1) | `sidebar.footer.action` occupant `codex-advisor-card`; production screenshot shows `Codex 顾问 / v0.5.1 / 尚未使用 / gpt-6-luna · max` at the sidebar foot; no raw thread id |
+| L2 host routes | PASS | `snapshot` 200; `history` 200; deferred `webServer` registration (0.4.3); update route live after restart |
+| L2 update check | PASS (live 0.5.1) | `GET http://127.0.0.1:32024/plugins/dsh-codex-advisor/update` → `{"currentVersion":"0.5.1","latestVersion":"0.5.1","updateAvailable":false,"checkedAt":"2026-11-05T01:44:02.436Z","releaseUrl":".../v0.5.1"}`; 6h cache; 5-min client retry; 15s/60s request bounds |
+| L2 update-cache invalidation | PASS (code + live) | `checkForUpdate` invalidates when `currentVersion` changes, supports `force`, and `apply` calls `resetUpdateCache()`; live route refreshed after the 09:43 restart |
+| L2 client reliability | PASS | client registration/render smoke; per-request AbortController timeouts; update retry; locale-aware tab label (`label: () => t('tab')`); version displayed from the live Host `source`, not a stale update-check cache; no raw thread ids |
+| L2 UI redesign | PASS (live 0.5.1) | the running renderer now has the card/panel redesign after the 09:43 full restart; an isolated web-app instance on a copied profile also rendered the card and empty Codex trail without touching production |
+| tests | PASS | 29/29 offline tests; L2 harness PASS; failure-path harness PASS (`CODEX_MODEL_UNAVAILABLE`, `poll.last_failure`, `last_failure`, `history.turns[].error`) |
+| CI workflow | PASS | `.github/workflows/ci.yml`; Windows `windows-latest` + Node 22; 29 unit tests + Host harness + failure-path harness; `e49633e` 2 runs success; https://github.com/Awenforever/dsh-codex-advisor/actions/workflows/ci.yml |
+| L2 live turn | FAIL (external network) | current session thread `01a1a712-a25b-7791-a0de-1ac1f6695911` turn failed: `workspace routing discovery failed` / `codex_error_info: other`; `https://chatgpt.com` still times out (curl 000 at 09:52). Not a plugin/UI failure. |
+| restart | PASS (live 0.5.1) | full DSH restart at 2026-11-05 09:43:49 +0800; bridge version 0.5.1; `/update` refreshed to latest 0.5.1 |
 | real Codex semantic (R1) | **PASS** (2026-11-04 14:42–15:13 +0800) | `gpt-6-luna` + `low`: spike thread `01a1a54b-aeb4-7502-83d2-cf4c0b9b2488` (read-only tool, app-server resume, recall `AMBER-WALRUS-5078`, interrupt); approval thread `01a1a556-19b5-7d60-ad90-ffae77fda0fd` (`declinedApprovals=1`, command declined); production thread `01a1a54c-e261-7123-979e-3544042de507` two turns; write file `.scratch/advisor-r1-write.txt` = `R1-WRITE-OK`; details in [R1 report](../reports/2026-11-04-R1-real-codex.md) |
 | max switch | PASS | profile patch `reasoningEffort: max`; plugin reload; `codex_status` → `config.model=gpt-6-luna`, `config.reasoningEffort=max` |
 | rollback | ready | `plugin_manager remove_bundle` target `dsh-codex-advisor`, or the rollback script |
@@ -114,7 +114,7 @@ Host `DESKTOP-KFSCV8C`, user `king_`, DSH `0.2.1-rc.5`, profile `desktop`.
 | S1 same thread two rounds | PASS (manager test; Windows L2; real DSH model: same `thread_id`, history `0 → 1 → 2`) | PASS (production thread `01a1a54c…`: two turns, same thread, no errors) |
 | S2 mid-course change | PASS (same-thread conversation; fake history increments; model observed prior turns) | PASS (same-thread follow-up in production; spike turn 2 recall) |
 | S3 final acceptance | PASS (model used the accumulated thread across three calls) | PASS (spike recalled `AMBER-WALRUS-5078`; production turn 2 answered call 2) |
-| S4 DSH restart / recovery | PASS (model-driven `--session-id` resume in a new Host: same thread, `history=1`; Windows restart harness; fail-closed digest on thread loss) | PASS (real app-server restart/resume; plugin restart harness; production app not restarted) |
+| S4 DSH restart / recovery | PASS (model-driven `--session-id` resume in a new Host: same thread, `history=1`; Windows restart harness; fail-closed digest on thread loss) | PASS (real app-server restart/resume; plugin restart harness; production 0.5.1 full restart at 09:43; same persisted state) |
 
 ## Known residuals (R1–R6)
 
@@ -123,13 +123,13 @@ Host `DESKTOP-KFSCV8C`, user `king_`, DSH `0.2.1-rc.5`, profile `desktop`.
 | R1 | closed (2026-11-04 15:13 +0800) | Real Codex: app-server resume, recall `AMBER-WALRUS-5078`, read-only command, write `R1-WRITE-OK`, `turn/interrupt`, approval declined; production two turns on one thread; no quota error. Details in [R1 report](../reports/2026-11-04-R1-real-codex.md). |
 | R2 | closed | Isolated-profile model-driven e2e ran with `USTC1_API_KEY` injected into the headless process environment only (never written to disk/profile/logs); S1–S4 passed against the fake app-server. |
 | R3 | closed (2026-11-03 12:09 +0800) | `win11-test`: bundle installed; desktop composition and real app launch verified. The app runs as `Administrator` in `SessionId=1` via an interactive scheduled task (`New-ScheduledTaskPrincipal -LogonType Interactive`), plugin `activate` pid 5800, CDP `http://127.0.0.1:9222/json` HTTP 200, page `dsh-app://app/`. The VMware blank-password boundary is irrelevant to this path. |
-| R4 | closed (2026-11-05 01:51 +0800) | Production `desktop` cleanly installed `dsh-codex-advisor` **0.5.1** from tag `v0.5.1`; dependency updated; GitHub release published; 6 tools; 28/28 tests. Client redesign awaits the final full restart. |
+| R4 | closed (2026-11-05 09:52 +0800) | Production `desktop` cleanly installed `dsh-codex-advisor` **0.5.1** from tag `v0.5.1`; dependency updated; GitHub release published; 6 tools; 29/29 tests + CI green; new client UI live after the 09:43 full restart. |
 | R5 | closed (2026-11-05) | Sidebar card is visible in the user's screenshot at the sidebar foot; the earlier absence was a layout/scroll state, not registration. |
 | R6 | open (external) | Live Codex turn failed with `workspace routing discovery failed` while `chatgpt.com` timed out; retry when the network recovers. |
 
 ## G0 note
 
-Both halves of G0 passed: the structural half and the semantic half (real model recall, read/write tools, interrupt, auto-declined approval). The production advisor is accepted with `gpt-6-luna` + `reasoningEffort: max`; see [R1 report](../reports/2026-11-04-R1-real-codex.md). The only caveat is that a full DSH Host restart with real Codex was not rerun on production (to avoid disrupting the running app); the plugin restart harness and the real app-server resume cover the persistence path.
+Both halves of G0 passed: the structural half and the semantic half (real model recall, read/write tools, interrupt, auto-declined approval). The production advisor is accepted with `gpt-6-luna` + `reasoningEffort: max`; see [R1 report](../reports/2026-11-04-R1-real-codex.md). A full DSH Host restart on 2026-11-05 09:43 loaded 0.5.1 cleanly and the new card/Codex tab/update route are live; only a fresh real-Codex turn remains blocked by the external `chatgpt.com` timeout (R6).
 
 ## Rollback (production desktop)
 
