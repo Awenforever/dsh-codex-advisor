@@ -4,7 +4,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AdvisorManager, resolveConfig } from '../lib/manager.mjs';
+import { AdvisorManager, renderToolResult, resolveConfig } from '../lib/manager.mjs';
 import { AdvisorStore } from '../lib/store.mjs';
 import { nodeSpawn } from '../lib/spawn.mjs';
 
@@ -152,6 +152,20 @@ test('status reports app-server and binding facts', async () => {
   assert.ok(status.thread.thread_id);
   assert.equal(status.config.sandbox, 'workspace-write');
   await manager.dispose();
+});
+
+test('tool result renders the turn model and effort instead of the config fallback', () => {
+  const text = renderToolResult('codex_ask', {
+    source: { kind: 'codex-advisor', plugin: 'dsh-codex-advisor', version: '0.6.1', model: 'gpt-6-luna', effort: 'max' },
+    status: 'completed',
+    thread_id: 'thr-1',
+    turn_id: 'turn-1',
+    model: 'gpt-6-luna',
+    effort: 'low',
+    answer: 'ok',
+  })[0].text;
+  assert.match(text, /model: gpt-6-luna\s+effort: low/);
+  assert.doesNotMatch(text, /effort: max/);
 });
 
 test('labeled threads pin a model while effort can vary', async () => {
