@@ -1,6 +1,6 @@
-# Release acceptance — dsh-codex-advisor 0.5.1
+# Release acceptance — dsh-codex-advisor 0.5.3
 
-Status: **accepted for production** (2026-11-05 09:52 +0800); live desktop 0.5.1, new client UI and update check verified after the 09:43 full restart.
+Status: **accepted for production** (2026-11-05 11:15 +0800); real Codex turn completed with `CODEX-LIVE-OK` on the bound production thread; 0.5.3 installs the completion-persistence fix and the 0.5.2 visual polish, pending one full DSH restart for the renderer.
 
 ## Environment
 
@@ -86,8 +86,9 @@ Host `DESKTOP-KFSCV8C`, user `king_`, DSH `0.2.1-rc.5`, profile `desktop`.
 | Check | Result | Evidence |
 |---|---|---|
 | pre-install backup | PASS | `package.json`, `cordis.patch.yml`, `pnpm-lock.yaml` → `.bak-20261104-codex-advisor`; rollback script `C:\Users\king_\.dsh\codex-advisor-rollback.ps1` |
-| install via `plugin_manager` | PASS | initial 0.1.0, upgraded to 0.2.0, 0.3.0, 0.4.3, 0.5.0, then **0.5.1 cleanly from tag `v0.5.1`** (`application=applied`; dependency updated to the tag; GitHub release published); 6 tools; Host 0.5.1 |
-| 0.5.2 visual polish | INSTALLED (restart pending) | installed cleanly from tag/release `v0.5.2` (`pkg 0.5.2`, dependency updated, Host bridge 0.5.2); production renderer remains 0.5.1 until the next full restart; no-session card and panel header/source simplification verified in an isolated web-app instance; live `/update` still serves the old 0.5.1 closure until that restart |
+| install via `plugin_manager` | PASS | initial 0.1.0, upgraded to 0.2.0, 0.3.0, 0.4.3, 0.5.0, 0.5.1, then **0.5.2**, and **0.5.3** (completion persistence); dependency updated; GitHub releases published; 6 tools; Host bridge 0.5.3 |
+| 0.5.3 completion persistence | PASS | a turn that completes after `codex_ask` returns `running` is now persisted by the background completion handler (`snapshot ?? session.snapshot()`), so `codex_poll`/sidebar snapshot show the answer; `recordTurn` is idempotent per turn id; new manager regression test; 30/30 |
+| 0.5.2 visual polish | INSTALLED (restart pending) | clearer no-session card and simpler Codex panel header/source line; installed via 0.5.3; renderer remains 0.5.1 until the next full DSH restart |
 | tools registered | PASS | Host `Tool.listTools` includes `codex_ask`, `codex_poll`, `codex_cancel`, `codex_status`, `codex_history`, `codex_reset` |
 | model/effort config | PASS | acceptance `model: gpt-6-luna`, `reasoningEffort: low`; after R1 switched to `reasoningEffort: max` (activate `2026-11-04T07:12:50.369Z`) |
 | activation | PASS | `events.ndjson` → `{"event":"activate","pid":9428,...,"t":"2026-11-04T04:03:04.084Z"}`, reloaded `05:14:06.755Z`, `07:12:50.369Z`, `08:34:43.974Z` (0.3.0), after restart `14:45:52.875Z` (pid 41584), 0.5.0 at `16:42:14.121Z`, clean 0.5.0 at `17:42:00.958Z`, 0.5.1 at `17:51:26.672Z`, and live 0.5.1 at `2026-11-05T01:43:55.471Z` (pid 50980; app started 09:43:49 +0800) |
@@ -100,10 +101,11 @@ Host `DESKTOP-KFSCV8C`, user `king_`, DSH `0.2.1-rc.5`, profile `desktop`.
 | L2 update-cache invalidation | PASS (code + live) | `checkForUpdate` invalidates when `currentVersion` changes, supports `force`, and `apply` calls `resetUpdateCache()`; live route refreshed after the 09:43 restart |
 | L2 client reliability | PASS | client registration/render smoke; per-request AbortController timeouts; update retry; locale-aware tab label (`label: () => t('tab')`); version displayed from the live Host `source`, not a stale update-check cache; no raw thread ids |
 | L2 UI redesign | PASS (live 0.5.1) | the running renderer now has the card/panel redesign after the 09:43 full restart; an isolated web-app instance on a copied profile also rendered the card and empty Codex trail without touching production |
-| tests | PASS | 29/29 offline tests; L2 harness PASS; failure-path harness PASS (`CODEX_MODEL_UNAVAILABLE`, `poll.last_failure`, `last_failure`, `history.turns[].error`) |
-| CI workflow | PASS | `.github/workflows/ci.yml`; Windows `windows-latest` + Node 22; 29 unit tests + Host harness + failure-path harness; `e49633e` 2 runs success; https://github.com/Awenforever/dsh-codex-advisor/actions/workflows/ci.yml |
-| L2 live turn | FAIL (external network) | current session thread `01a1a712-a25b-7791-a0de-1ac1f6695911` turn failed: `workspace routing discovery failed` / `codex_error_info: other`; `https://chatgpt.com` still times out (curl 000 at 09:52). Not a plugin/UI failure. |
-| restart | PASS (live 0.5.1) | full DSH restart at 2026-11-05 09:43:49 +0800; bridge version 0.5.1; `/update` refreshed to latest 0.5.1 |
+| tests | PASS | 30/30 offline tests; L2 harness PASS; failure-path harness PASS (`CODEX_MODEL_UNAVAILABLE`, `poll.last_failure`, `last_failure`, `history.turns[].error`); manager regression test for completion-after-timeout persistence |
+| CI workflow | PASS | `.github/workflows/ci.yml`; Windows `windows-latest` + Node 22; 30 unit tests + Host harness + failure-path harness; latest main CI runs success; https://github.com/Awenforever/dsh-codex-advisor/actions/workflows/ci.yml |
+| L2 live turn | PASS (2026-11-05 11:15 +0800) | production thread `01a1a712-a25b-7791-a0de-1ac1f6695911`, turn `01a1a9b2-e9c2-7412-988f-faa16ba27036` completed with `answer: CODEX-LIVE-OK`; `codex_status` `state=ready`, quota allowed (primary 27%, secondary 67%); no plugin/UI failure. The earlier `curl chatgpt.com` 000 was a CLI-path false negative; the real app-server path works. |
+| completion-after-timeout persistence | PASS | the live success was not in the store initially (`lastTurnId=null`, `lastAnswerAt=null`) because the ask returned `running` and the turn completed after the wait; 0.5.3 persists it in the background and has a manager regression test; the current record was backfilled with `CODEX-LIVE-OK` for the next restart |
+| restart | PASS (0.5.1 live) / pending 0.5.3 | 0.5.1 full restart at 2026-11-05 09:43:49 +0800; 0.5.3 is installed; renderer 0.5.1 until the next full restart |
 | real Codex semantic (R1) | **PASS** (2026-11-04 14:42–15:13 +0800) | `gpt-6-luna` + `low`: spike thread `01a1a54b-aeb4-7502-83d2-cf4c0b9b2488` (read-only tool, app-server resume, recall `AMBER-WALRUS-5078`, interrupt); approval thread `01a1a556-19b5-7d60-ad90-ffae77fda0fd` (`declinedApprovals=1`, command declined); production thread `01a1a54c-e261-7123-979e-3544042de507` two turns; write file `.scratch/advisor-r1-write.txt` = `R1-WRITE-OK`; details in [R1 report](../reports/2026-11-04-R1-real-codex.md) |
 | max switch | PASS | profile patch `reasoningEffort: max`; plugin reload; `codex_status` → `config.model=gpt-6-luna`, `config.reasoningEffort=max` |
 | rollback | ready | `plugin_manager remove_bundle` target `dsh-codex-advisor`, or the rollback script |
@@ -124,10 +126,10 @@ Host `DESKTOP-KFSCV8C`, user `king_`, DSH `0.2.1-rc.5`, profile `desktop`.
 | R1 | closed (2026-11-04 15:13 +0800) | Real Codex: app-server resume, recall `AMBER-WALRUS-5078`, read-only command, write `R1-WRITE-OK`, `turn/interrupt`, approval declined; production two turns on one thread; no quota error. Details in [R1 report](../reports/2026-11-04-R1-real-codex.md). |
 | R2 | closed | Isolated-profile model-driven e2e ran with `USTC1_API_KEY` injected into the headless process environment only (never written to disk/profile/logs); S1–S4 passed against the fake app-server. |
 | R3 | closed (2026-11-03 12:09 +0800) | `win11-test`: bundle installed; desktop composition and real app launch verified. The app runs as `Administrator` in `SessionId=1` via an interactive scheduled task (`New-ScheduledTaskPrincipal -LogonType Interactive`), plugin `activate` pid 5800, CDP `http://127.0.0.1:9222/json` HTTP 200, page `dsh-app://app/`. The VMware blank-password boundary is irrelevant to this path. |
-| R4 | closed (2026-11-05 09:52 +0800) | Production `desktop` cleanly installed `dsh-codex-advisor` **0.5.1** from tag `v0.5.1`; dependency updated; GitHub release published; 6 tools; 29/29 tests + CI green; new client UI live after the 09:43 full restart. |
+| R4 | closed (2026-11-05 09:52 +0800) | Production `desktop` cleanly installed 0.5.1, then 0.5.2/0.5.3; dependency updated; GitHub releases published; 6 tools; 30/30 tests + CI green; 0.5.1 client live; 0.5.3 renderer pending restart. |
 | R5 | closed (2026-11-05) | Sidebar card is visible in the user's screenshot at the sidebar foot; the earlier absence was a layout/scroll state, not registration. |
-| R6 | open (external) | Live Codex turn failed with `workspace routing discovery failed` while `chatgpt.com` timed out; retry when the network recovers. |
-| R7 | open (restart) | `v0.5.2` is installed (pkg/dependency/Host bridge 0.5.2); the current renderer is 0.5.1 until the next full DSH restart; live `/update` may show the old 0.5.1 closure until then. |
+| R6 | closed (2026-11-05 11:15 +0800) | Real Codex turn on production thread `01a1a712…` completed with `CODEX-LIVE-OK`; quota allowed; the earlier `curl chatgpt.com` 000 was a CLI-path false negative, not a network/plugin failure. |
+| R7 | open (restart) | `v0.5.3` is installed (completion persistence + 0.5.2 visual); the current renderer is 0.5.1 until the next full DSH restart; live `/update` may show the old closure until then. |
 
 ## G0 note
 

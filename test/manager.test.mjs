@@ -81,6 +81,22 @@ test('slow turn returns running, then poll completes it', async () => {
   await manager.dispose();
 });
 
+test('a completion after an ask timeout is persisted for the card', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'advisor-mgr-'));
+  const { manager } = makeManager({ mode: 'slow', dir, statePath: join(dir, 'state.json') });
+  const running = await manager.ask({ message: 'slow', wait_seconds: 0 }, execFor());
+  assert.equal(running.status, 'running');
+  assert.ok(running.turn_id);
+  await new Promise((resolve) => setTimeout(resolve, 2200));
+  const snapshot = await manager.snapshot({}, execFor());
+  assert.match(snapshot.last_answer, /pong:slow/);
+  assert.ok(snapshot.last_answer_at);
+  const polled = await manager.poll({ turn_id: running.turn_id, wait_seconds: 0 }, execFor());
+  assert.equal(polled.status, 'idle');
+  assert.match(polled.answer, /pong:slow/);
+  await manager.dispose();
+});
+
 test('cancel interrupts a running turn', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'advisor-mgr-'));
   const { manager } = makeManager({ mode: 'slow', dir, statePath: join(dir, 'state.json') });
