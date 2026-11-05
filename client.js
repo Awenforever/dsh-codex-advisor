@@ -566,6 +566,288 @@ window.__ModuleLoader__.load({
       return parts.join(' · ');
     }
 
+    function safeMarkdownHref(value) {
+      const href = String(value ?? '').trim();
+      return /^(https?:\/\/|mailto:)/i.test(href) ? href : null;
+    }
+
+    function renderInlineMarkdown(value, prefix = 'inline') {
+      const text = String(value ?? '');
+      if (!text) return [];
+      const pattern = /(`[^`\n]+`|\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|\*[^*\n]+\*|_[^_\n]+_|\[[^\]\n]+\]\([^) \n]+\))/g;
+      const nodes = [];
+      let cursor = 0;
+      let match;
+      let index = 0;
+      while ((match = pattern.exec(text)) !== null) {
+        if (match.index > cursor) nodes.push(text.slice(cursor, match.index));
+        const token = match[0];
+        const key = `${prefix}-${index}`;
+        index += 1;
+        if (token.startsWith('`') && token.endsWith('`')) {
+          nodes.push(h('code', {
+            key,
+            style: {
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              fontSize: '0.9em',
+              padding: '1px 4px',
+              borderRadius: 4,
+              border: '1px solid var(--dsw-alias-border-l1)',
+              background: 'var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1))',
+              color: 'var(--dsw-alias-label-primary)',
+            },
+          }, token.slice(1, -1)));
+        } else if (token.startsWith('**') || token.startsWith('__')) {
+          nodes.push(h('strong', { key, style: { fontWeight: 650 } }, ...renderInlineMarkdown(token.slice(2, -2), `${key}-s`)));
+        } else if (token.startsWith('~~')) {
+          nodes.push(h('del', { key, style: { opacity: 0.7 } }, ...renderInlineMarkdown(token.slice(2, -2), `${key}-d`)));
+        } else if (token.startsWith('*') || token.startsWith('_')) {
+          nodes.push(h('em', { key }, ...renderInlineMarkdown(token.slice(1, -1), `${key}-e`)));
+        } else if (token.startsWith('[')) {
+          const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
+          const href = link ? safeMarkdownHref(link[2]) : null;
+          if (link && href) {
+            nodes.push(h('a', {
+              key,
+              href,
+              target: '_blank',
+              rel: 'noreferrer',
+              style: {
+                color: 'var(--dsw-alias-label-primary)',
+                textDecoration: 'underline',
+                textUnderlineOffset: 2,
+              },
+            }, ...renderInlineMarkdown(link[1], `${key}-a`)));
+          } else {
+            nodes.push(token);
+          }
+        } else {
+          nodes.push(token);
+        }
+        cursor = match.index + token.length;
+      }
+      if (cursor < text.length) nodes.push(text.slice(cursor));
+      return nodes;
+    }
+
+    function renderMarkdown(value, prefix = 'md') {
+      const lines = String(value ?? '').replace(/\r\n?/g, '\n').split('\n');
+      const blocks = [];
+      let index = 0;
+      let key = 0;
+      const nextKey = () => `${prefix}-${key++}`;
+      while (index < lines.length) {
+        const line = lines[index];
+        if (!line.trim()) { index += 1; continue; }
+
+        const fence = /^\s*```(.*)$/.exec(line);
+        if (fence) {
+          const code = [];
+          index += 1;
+          while (index < lines.length && !/^\s*```\s*$/.test(lines[index])) {
+            code.push(lines[index]);
+            index += 1;
+          }
+          if (index < lines.length) index += 1;
+          blocks.push(h('pre', {
+            key: nextKey(),
+            style: {
+              margin: '10px 0',
+              padding: '10px 12px',
+              overflowX: 'auto',
+              borderRadius: 8,
+              border: '1px solid var(--dsw-alias-border-l1)',
+              background: 'var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1))',
+              color: 'var(--dsw-alias-label-primary)',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              fontSize: 11.5,
+              lineHeight: 1.65,
+              whiteSpace: 'pre',
+            },
+          }, h('code', null, code.join('\n'))));
+          continue;
+        }
+
+        const heading = /^(#{1,4})\s+(.+)$/.exec(line);
+        if (heading) {
+          const level = heading[1].length;
+          blocks.push(h(`h${level}`, {
+            key: nextKey(),
+            style: {
+              margin: blocks.length === 0 ? '0 0 8px' : '14px 0 6px',
+              fontSize: level === 1 ? 15 : level === 2 ? 14 : level === 3 ? 13.5 : 13,
+              fontWeight: 650,
+              lineHeight: 1.35,
+              letterSpacing: '-0.01em',
+            },
+          }, ...renderInlineMarkdown(heading[2], `${prefix}-h${level}`)));
+          index += 1;
+          continue;
+        }
+
+        if (/^\s*(?:---+|\*\*\*+|___+)\s*$/.test(line)) {
+          blocks.push(h('hr', {
+            key: nextKey(),
+            style: {
+              margin: '14px 0',
+              border: 0,
+              borderTop: '1px solid var(--dsw-alias-border-l1)',
+            },
+          }));
+          index += 1;
+          continue;
+        }
+
+        if (/^\s*>\s?/.test(line)) {
+          const quote = [];
+          while (index < lines.length && /^\s*>\s?/.test(lines[index])) {
+            quote.push(lines[index].replace(/^\s*>\s?/, ''));
+            index += 1;
+          }
+          blocks.push(h('blockquote', {
+            key: nextKey(),
+            style: {
+              margin: '10px 0',
+              padding: '2px 0 2px 11px',
+              borderLeft: '2px solid var(--dsw-alias-border-l1)',
+              color: 'var(--dsw-alias-label-secondary)',
+            },
+          }, ...renderMarkdown(quote.join('\n'), `${prefix}-quote`)));
+          continue;
+        }
+
+        const unordered = /^\s*[-*+]\s+(.+)$/.exec(line);
+        const ordered = /^\s*\d+[.)]\s+(.+)$/.exec(line);
+        if (unordered || ordered) {
+          const isOrdered = Boolean(ordered);
+          const items = [];
+          while (index < lines.length) {
+            const item = isOrdered ? /^\s*\d+[.)]\s+(.+)$/.exec(lines[index]) : /^\s*[-*+]\s+(.+)$/.exec(lines[index]);
+            if (!item) break;
+            items.push(item[1]);
+            index += 1;
+          }
+          const listStyle = { margin: '8px 0 10px', paddingLeft: 20, color: 'var(--dsw-alias-label-primary)' };
+          blocks.push(h(isOrdered ? 'ol' : 'ul', { key: nextKey(), style: listStyle },
+            items.map((item, itemIndex) => h('li', {
+              key: `${prefix}-li-${itemIndex}`,
+              style: { margin: '3px 0', paddingLeft: 2 },
+            }, ...renderInlineMarkdown(item, `${prefix}-li-${itemIndex}`)))));
+          continue;
+        }
+
+        const paragraph = [];
+        while (index < lines.length) {
+          const current = lines[index];
+          if (!current.trim()) break;
+          if (/^\s*```/.test(current) || /^(#{1,4})\s+/.test(current)
+            || /^\s*>\s?/.test(current) || /^\s*[-*+]\s+/.test(current)
+            || /^\s*\d+[.)]\s+/.test(current) || /^\s*(?:---+|\*\*\*+|___+)\s*$/.test(current)) break;
+          paragraph.push(current);
+          index += 1;
+        }
+        if (paragraph.length > 0) {
+          blocks.push(h('div', {
+            key: nextKey(),
+            style: {
+              margin: '0 0 10px',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            },
+          }, ...renderInlineMarkdown(paragraph.join('\n'), `${prefix}-p`)));
+        }
+      }
+      return blocks;
+    }
+
+    function MarkdownText(props) {
+      const { text, style } = props;
+      return h('div', {
+        style: {
+          color: 'var(--dsw-alias-label-primary)',
+          fontSize: 13.5,
+          lineHeight: 1.72,
+          minWidth: 0,
+          wordBreak: 'break-word',
+          ...style,
+        },
+      }, ...renderMarkdown(text, props.prefix ?? 'md'));
+    }
+
+    function ThreadRail(props) {
+      const { threads, selectedId, onSelect } = props;
+      if (!Array.isArray(threads) || threads.length === 0) return null;
+      const chip = (thread, compact) => {
+        const isSelected = thread.threadId === selectedId;
+        const label = thread.label || 'Untitled';
+        return h('button', {
+          key: thread.threadId,
+          type: 'button',
+          role: 'tab',
+          'aria-selected': isSelected,
+          title: `${label}${thread.model ? ` · ${thread.model}` : ''}${thread.active ? ' · active advisor thread' : ''}`,
+          onClick: () => onSelect(thread.threadId),
+          style: {
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: compact ? 5 : 6,
+            maxWidth: compact ? 260 : 240,
+            minWidth: 0,
+            padding: compact ? '3px 8px' : '5px 9px',
+            borderRadius: 999,
+            border: isSelected
+              ? '1px solid var(--dsw-alias-label-primary)'
+              : '1px solid var(--dsw-alias-border-l1)',
+            background: isSelected
+              ? 'var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1))'
+              : 'transparent',
+            color: isSelected ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-secondary)',
+            font: 'inherit',
+            fontSize: compact ? 10.5 : 11,
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            flex: '0 0 auto',
+          },
+        },
+        h('span', {
+          style: {
+            width: 5,
+            height: 5,
+            borderRadius: 99,
+            flex: '0 0 auto',
+            background: thread.active ? '#16a34a' : 'var(--dsw-alias-border-l1)',
+          },
+          title: thread.active ? 'active advisor thread' : 'inactive advisor thread',
+        }),
+        h('span', {
+          style: { overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: compact ? 170 : 150 },
+        }, label),
+        thread.model ? h('span', {
+          style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 9.5, overflow: 'hidden', textOverflow: 'ellipsis' },
+        }, `${thread.model}${thread.turnCount ? ` · ${thread.turnCount}` : ''}`) : null);
+      };
+      if (threads.length === 1) {
+        return h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0, flex: '0 0 auto' } },
+          h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5, whiteSpace: 'nowrap' } }, 'Thread'),
+          chip(threads[0], true));
+      }
+      return h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, maxWidth: '100%', flex: '0 0 auto' } },
+        h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5, whiteSpace: 'nowrap' } }, 'Threads'),
+        h('div', {
+          role: 'tablist',
+          'aria-label': 'Codex threads',
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            minWidth: 0,
+            overflowX: 'auto',
+            padding: '1px 1px 3px',
+            scrollbarWidth: 'thin',
+          },
+        }, threads.map((thread) => chip(thread, false))));
+    }
+
     function CodexCard(props) {
       const t = useT(props);
       const sessionId = useActiveSession();
@@ -716,7 +998,17 @@ window.__ModuleLoader__.load({
         h('span', { style: { fontSize: 11, whiteSpace: 'nowrap' } }, statusLabel),
         turnCount > 0 ? h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 9.5, whiteSpace: 'nowrap' } }, `${turnCount} ${t('rounds')}`) : null,
         when ? h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 9.5, whiteSpace: 'nowrap' } }, when) : null,
-        threadCount > 1 ? h('span', { style: { marginLeft: 'auto', color: 'var(--dsw-alias-label-secondary)', fontSize: 9.5, whiteSpace: 'nowrap' } }, `${threadCount} threads`) : null,
+        threadCount > 1 ? h('span', {
+          style: {
+            marginLeft: 'auto',
+            padding: '1px 6px',
+            border: '1px solid var(--dsw-alias-border-l1)',
+            borderRadius: 999,
+            color: 'var(--dsw-alias-label-secondary)',
+            fontSize: 9,
+            whiteSpace: 'nowrap',
+          },
+        }, `${threadCount} threads`) : null,
       ),
       hasThread ? h('div', {
         style: {
@@ -730,8 +1022,16 @@ window.__ModuleLoader__.load({
         },
         title: threadLabel ?? '',
       }, `Thread · ${threadLabel ?? 'Untitled'}`) : null,
-      lastAsk ? h('div', { style: { minWidth: 0 } },
-        h('div', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 8.5, marginBottom: 1 } }, 'Ask'),
+      lastAsk ? h('div', {
+        style: {
+          minWidth: 0,
+          padding: '5px 7px 6px',
+          borderRadius: 7,
+          border: '1px solid rgba(37, 99, 235, 0.13)',
+          background: 'rgba(37, 99, 235, 0.045)',
+        },
+      },
+        h('div', { style: { color: '#2563eb', fontSize: 8.5, fontWeight: 600, marginBottom: 2 } }, 'Ask'),
         h('div', {
           style: {
             fontSize: 11,
@@ -801,6 +1101,7 @@ window.__ModuleLoader__.load({
       const files = Array.isArray(turn.files) ? turn.files : [];
       const failed = turn.status === 'failed' || Boolean(turn.error);
       const footnote = [turn.model, turn.effort].filter(Boolean).join(' · ');
+      const statusTint = /^#[0-9a-f]{6}$/i.test(meta.color) ? `${meta.color}14` : 'rgba(120, 120, 120, 0.08)';
       const activityLabel = [
         commands.length > 0 ? `${commands.length} command${commands.length === 1 ? '' : 's'}` : null,
         files.length > 0 ? `${files.length} file${files.length === 1 ? '' : 's'}` : null,
@@ -808,122 +1109,169 @@ window.__ModuleLoader__.load({
       return h('article', {
         style: {
           position: 'relative',
-          borderLeft: `2px solid ${meta.color}`,
-          padding: '0 0 2px 15px',
-          marginBottom: 24,
+          borderLeft: `2px solid ${failed ? '#dc2626' : meta.color}`,
+          padding: '0 0 3px 16px',
+          marginBottom: 28,
           minWidth: 0,
         },
       },
-      h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 9, minWidth: 0 } },
-        h('span', { style: { color: meta.color, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' } }, meta.label),
-        when ? h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10 } }, when) : null,
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10, minWidth: 0 } },
+        h('span', {
+          style: {
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            padding: '2px 7px',
+            borderRadius: 999,
+            background: statusTint,
+            color: meta.color,
+            fontSize: 9.5,
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+          },
+        },
+        h('span', { style: { width: 5, height: 5, borderRadius: 99, background: meta.color } }),
+        meta.label),
+        when ? h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 9.5, whiteSpace: 'nowrap' } }, when) : null,
       ),
       turn.ask ? h('div', {
         style: {
-          marginBottom: 13,
-          padding: '9px 11px',
-          borderRadius: 8,
-          background: 'var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1))',
-          border: '1px solid var(--dsw-alias-border-l1)',
+          marginBottom: 16,
+          padding: '10px 12px 11px',
+          borderRadius: 10,
+          border: '1px solid rgba(37, 99, 235, 0.16)',
+          borderLeft: '3px solid rgba(37, 99, 235, 0.62)',
+          background: 'rgba(37, 99, 235, 0.055)',
           minWidth: 0,
         },
       },
       h('div', {
         style: {
-          color: 'var(--dsw-alias-label-secondary)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 5,
+          marginBottom: 5,
+          color: '#2563eb',
           fontSize: 9.5,
+          fontWeight: 600,
           lineHeight: 1.2,
-          marginBottom: 3,
         },
-      }, 'Ask'),
-      h('div', {
-        style: {
-          color: 'var(--dsw-alias-label-primary)',
-          fontSize: 12.5,
-          lineHeight: 1.6,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          maxWidth: 720,
-        },
-      }, turn.ask),
+      },
+      h('span', { style: { width: 4, height: 4, borderRadius: 99, background: '#2563eb' } }),
+      'Ask'),
+      h(MarkdownText, {
+        text: turn.ask,
+        prefix: `ask-${turn.turn_id ?? 'turn'}`,
+        style: { fontSize: 12.5, lineHeight: 1.65, maxWidth: 720 },
+      }),
       ) : null,
       h('div', { style: { minWidth: 0 } },
         h('div', {
           style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
             color: failed ? '#b91c1c' : 'var(--dsw-alias-label-secondary)',
             fontSize: 9.5,
+            fontWeight: 600,
             lineHeight: 1.2,
-            marginBottom: 4,
+            marginBottom: 5,
           },
-        }, failed ? 'Failure' : 'Codex'),
-        turn.answer ? h('div', {
-          style: {
-            color: 'var(--dsw-alias-label-primary)',
-            fontSize: 13.5,
-            lineHeight: 1.68,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            maxWidth: 720,
-          },
-        }, turn.answer) : h('div', {
+        },
+        h('span', { style: { width: 4, height: 4, borderRadius: 99, background: failed ? '#dc2626' : 'var(--dsw-alias-label-secondary)' } }),
+        failed ? 'Failure' : 'Codex'),
+        turn.answer ? h(MarkdownText, {
+          text: turn.answer,
+          prefix: `answer-${turn.turn_id ?? 'turn'}`,
+          style: { fontSize: 13.5, lineHeight: 1.72, maxWidth: 720 },
+        }) : failed ? h(MarkdownText, {
+          text: turn.error ?? t('noAnswer'),
+          prefix: 'turn-failure',
+          style: { color: '#b91c1c', fontSize: 12, lineHeight: 1.55, maxWidth: 720 },
+        }) : h('div', {
           style: {
             color: 'var(--dsw-alias-label-secondary)',
             fontSize: 12.5,
             lineHeight: 1.55,
           },
-        }, failed ? (turn.error ?? t('noAnswer')) : t('noAnswer')),
+        }, t('noAnswer')),
       ),
       failed && turn.answer && turn.error ? h('div', {
         style: {
-          marginTop: 9,
-          padding: '8px 10px',
+          marginTop: 10,
+          padding: '9px 11px',
           border: '1px solid #fecaca',
-          borderRadius: 8,
+          borderRadius: 9,
           background: 'rgba(254, 226, 226, 0.28)',
-          color: '#b91c1c',
-          fontSize: 11.5,
-          lineHeight: 1.5,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
         },
-      }, turn.error) : null,
+      }, h(MarkdownText, {
+        text: turn.error,
+        prefix: 'turn-error',
+        style: { color: '#b91c1c', fontSize: 11.5, lineHeight: 1.55 },
+      })) : null,
       (commands.length > 0 || files.length > 0) ? h('details', {
         style: {
-          marginTop: 12,
+          marginTop: 14,
           color: 'var(--dsw-alias-label-secondary)',
           fontSize: 10.5,
           lineHeight: 1.55,
         },
       },
-      h('summary', { style: { cursor: 'pointer', userSelect: 'none' } }, `Activity${activityLabel ? ` · ${activityLabel}` : ''}`),
-      commands.length > 0 ? h('div', { style: { marginTop: 7 } },
-        commands.map((command, index) => h('div', {
-          key: index,
+      h('summary', {
+        style: {
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 5,
+          padding: '2px 8px',
+          border: '1px solid var(--dsw-alias-border-l1)',
+          borderRadius: 999,
+          cursor: 'pointer',
+          userSelect: 'none',
+          listStyle: 'none',
+          color: 'var(--dsw-alias-label-secondary)',
+          fontSize: 9.5,
+        },
+      }, `Activity${activityLabel ? ` · ${activityLabel}` : ''}`),
+      h('div', { style: { marginTop: 9 } },
+        commands.map((command, commandIndex) => h('div', {
+          key: commandIndex,
           style: {
+            marginTop: commandIndex === 0 ? 0 : 7,
+            padding: '7px 9px',
+            borderRadius: 7,
+            border: '1px solid var(--dsw-alias-border-l1)',
+            background: 'var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1))',
             fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
             fontSize: 10.5,
-            lineHeight: 1.7,
+            lineHeight: 1.65,
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
             color: 'var(--dsw-alias-label-secondary)',
           },
         }, `$ ${command.command ?? ''}${command.status ? `  [${command.status}]` : ''}`)),
-      ) : null,
-      files.length > 0 ? h('div', {
-        style: {
-          marginTop: 6,
-          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-          fontSize: 10.5,
-          lineHeight: 1.7,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-all',
-          color: 'var(--dsw-alias-label-secondary)',
-        },
-      }, files.join('\n')) : null,
+        files.length > 0 ? h('div', {
+          style: {
+            marginTop: commands.length > 0 ? 8 : 0,
+            padding: '7px 9px',
+            borderRadius: 7,
+            border: '1px solid var(--dsw-alias-border-l1)',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+            fontSize: 10.5,
+            lineHeight: 1.7,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all',
+            color: 'var(--dsw-alias-label-secondary)',
+          },
+        }, files.join('\n')) : null,
+      ),
       ) : null,
       footnote ? h('div', {
         style: {
-          marginTop: 10,
+          display: 'flex',
+          justifyContent: 'flex-end',
+          marginTop: 13,
+          paddingTop: 7,
+          borderTop: '1px solid var(--dsw-alias-border-l1)',
           color: 'var(--dsw-alias-label-secondary)',
           fontSize: 9.5,
           lineHeight: 1.2,
@@ -931,6 +1279,7 @@ window.__ModuleLoader__.load({
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
+          opacity: 0.88,
         },
       }, footnote) : null,
       );
@@ -1004,17 +1353,6 @@ window.__ModuleLoader__.load({
         cursor: loading ? 'default' : 'pointer',
         opacity: loading ? 0.6 : 1,
       };
-      const selectStyle = {
-        maxWidth: 300,
-        minWidth: 0,
-        border: '1px solid var(--dsw-alias-border-l1)',
-        borderRadius: 8,
-        background: 'transparent',
-        color: 'var(--dsw-alias-label-primary)',
-        fontSize: 11,
-        padding: '4px 7px',
-        font: 'inherit',
-      };
 
       return h('div', {
         style: {
@@ -1040,18 +1378,11 @@ window.__ModuleLoader__.load({
               }),
             ),
             h('div', { style: { marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 } },
-              threads.length > 0 ? h('label', { style: { display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 } },
-                h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5, whiteSpace: 'nowrap' } }, 'Thread'),
-                h('select', {
-                  value: selected ?? data?.thread_id ?? '',
-                  onChange: (event) => setSelected(event.target.value || null),
-                  style: selectStyle,
-                  'aria-label': 'Codex thread',
-                }, threads.map((thread) => h('option', {
-                  key: thread.threadId,
-                  value: thread.threadId,
-                }, `${thread.label ?? 'Untitled'}${thread.model ? ` · ${thread.model}` : ''}`))),
-              ) : null,
+              threads.length > 0 ? h(ThreadRail, {
+                threads,
+                selectedId: selected ?? data?.thread_id,
+                onSelect: setSelected,
+              }) : null,
               h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5, whiteSpace: 'nowrap' } },
                 `${turns.length} ${t('rounds')}`),
               lastAt ? h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5, whiteSpace: 'nowrap' } }, formatWhen(lastAt, t)) : null,
@@ -1116,6 +1447,9 @@ window.__ModuleLoader__.load({
         ctx.effect(() => ctx.locale.register(NS, { zh: en, en }), 'dsh-codex-advisor: locale dictionaries');
         const t = ctx.locale.bind(NS);
         fallbackT = t;
+        if (typeof window !== 'undefined' && window.__CODEX_ADVISOR_TEST__ === true) {
+          window.__codexAdvisorTest = { renderMarkdown, renderInlineMarkdown, ThreadRail, TurnCard };
+        }
 
         ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({
           name: 'conversation.composer.dock',
