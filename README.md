@@ -134,8 +134,9 @@ Development and verification are complete, including the real Codex R1 acceptanc
 | R2 | closed | The isolated-profile e2e used a process-scoped USTC key injection (never persisted); S1–S4 passed against the fake app-server. |
 | R3 | closed | `win11-test`: bundle installed; desktop composition and real app launch verified. The app runs as `Administrator` in `SessionId=1` via an interactive scheduled task (`New-ScheduledTaskPrincipal -LogonType Interactive`), plugin `activate` pid 5800, CDP `http://127.0.0.1:9222/json` HTTP 200. |
 | R4 | closed (2026-11-05) | Production `desktop` installed `dsh-codex-advisor` **0.5.1** cleanly from tag `v0.5.1` via `plugin_manager`; profile dependency updated; GitHub release `v0.5.1` published; 6 tools; client tab/card/probe live after the 09:43 full restart; 29/29 tests + Windows CI green. Final config: `gpt-6-luna` + `max`; R1 passed. Backups and rollback script are in place. |
+| R7 | open (restart) | `v0.5.2` is installed (pkg/dependency/Host bridge 0.5.2); the current renderer is still 0.5.1 until the next full DSH restart. |
 
-`v0.5.2` is a release-only visual polish: a clearer no-session card and a simpler Codex panel header/source line. It is tested (29/29) and available as an optional release; production remains on 0.5.1 until it is installed and DSH is restarted.
+`v0.5.2` is installed as of 2026-11-05 10:52 +0800; the current DSH renderer remains 0.5.1 until the next full restart, when the clearer no-session card and simpler Codex panel header/source line take effect. The live `/update` route may still show the old 0.5.1 closure until that restart.
 
 During acceptance the production profile used `reasoningEffort: low` (cheaper); after R1 passed it was switched to `max`. `reasoningEffort` is passed to the Codex `turn/start` request.
 
