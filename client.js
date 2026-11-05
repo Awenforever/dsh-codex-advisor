@@ -264,6 +264,23 @@ window.__ModuleLoader__.load({
     let updateCache = null;
     let updateCacheAt = 0;
     let updateInFlight = null;
+    let updateBooted = false;
+    let updateNoticeTimer = null;
+    let updateShared = { value: updateCache, checking: false, notice: null };
+    const updateListeners = new Set();
+
+    function publishUpdate(patch) {
+      updateShared = { ...updateShared, ...patch };
+      for (const listener of updateListeners) listener();
+    }
+
+    function showUpdateNotice(text) {
+      if (updateNoticeTimer) clearTimeout(updateNoticeTimer);
+      publishUpdate({ notice: text });
+      updateNoticeTimer = setTimeout(() => {
+        publishUpdate({ notice: null });
+      }, 6000);
+    }
 
     async function loadUpdate(force = false) {
       if (!force && updateCache && Date.now() - updateCacheAt < 6 * 60 * 60 * 1000) return updateCache;
@@ -282,53 +299,56 @@ window.__ModuleLoader__.load({
     }
 
     function useUpdate() {
-      const [state, setState] = React.useState({ value: updateCache, checking: false, notice: null });
-      const noticeTimer = React.useRef(null);
-      const showNotice = React.useCallback((text) => {
-        if (noticeTimer.current) clearTimeout(noticeTimer.current);
-        setState((current) => ({ ...current, notice: text }));
-        noticeTimer.current = setTimeout(() => {
-          setState((current) => ({ ...current, notice: null }));
-        }, 6000);
+      const [state, setState] = React.useState(updateShared);
+      React.useEffect(() => {
+        const listener = () => setState(updateShared);
+        updateListeners.add(listener);
+        listener();
+        return () => updateListeners.delete(listener);
       }, []);
       const check = React.useCallback(async (manual = true) => {
-        if (manual) showNotice(fallbackT('checking'));
-        setState((current) => ({ ...current, checking: true }));
+        if (manual) showUpdateNotice(fallbackT('checking'));
+        publishUpdate({ checking: true });
         try {
           const next = await loadUpdate(manual);
           if (!next || next.error) {
-            if (manual) showNotice(fallbackT('updateFailed'));
-            setState((current) => ({ ...current, checking: false }));
+            if (manual) showUpdateNotice(fallbackT('updateFailed'));
+            publishUpdate({ checking: false });
             return null;
           }
-          setState((current) => ({ ...current, value: next, checking: false }));
+          publishUpdate({ value: next, checking: false });
           if (manual) {
-            showNotice(next.updateAvailable
+            showUpdateNotice(next.updateAvailable
               ? `${fallbackT('updateAvailable')}${next.latestVersion ? ` v${next.latestVersion}` : ''}`
               : fallbackT('upToDate'));
           }
           return next;
         } catch {
-          if (manual) showNotice(fallbackT('updateFailed'));
-          setState((current) => ({ ...current, checking: false }));
+          if (manual) showUpdateNotice(fallbackT('updateFailed'));
+          publishUpdate({ checking: false });
           return null;
         }
-      }, [showNotice]);
+      }, []);
       React.useEffect(() => {
+        if (updateBooted) return undefined;
+        updateBooted = true;
         let alive = true;
         const boot = setTimeout(async () => {
           const next = await loadUpdate(false);
-          if (alive && next) setState((current) => ({ ...current, value: next }));
+          if (alive && next) publishUpdate({ value: next });
         }, 1200);
         const daily = setInterval(async () => {
           const next = await loadUpdate(false);
-          if (alive && next) setState((current) => ({ ...current, value: next }));
+          if (alive && next) publishUpdate({ value: next });
         }, 24 * 60 * 60 * 1000);
         return () => {
           alive = false;
           clearTimeout(boot);
           clearInterval(daily);
-          if (noticeTimer.current) clearTimeout(noticeTimer.current);
+          if (updateNoticeTimer) {
+            clearTimeout(updateNoticeTimer);
+            updateNoticeTimer = null;
+          }
         };
       }, []);
       return { ...state, check };

@@ -1,6 +1,6 @@
 {
     "name":  "dsh-codex-advisor",
-    "version":  "0.6.2",
+    "version":  "0.6.3",
     "description":  "Persistent Codex advisor threads callable from DSH sessions (app-server bridge) with a Codex tab and sidebar card.",
     "private":  true,
     "type":  "module",
