@@ -133,6 +133,33 @@ function queueWebRoutes(ctx, manager, updateService, disposers, log, attempt = 0
   disposers.push(() => clearTimeout(timer));
 }
 
+function clearStaleRoutes(webServer, log) {
+  const prefix = '/plugins/dsh-codex-advisor/';
+  const removed = [];
+  try {
+    const exact = webServer?.exact;
+    if (exact instanceof Map) {
+      for (const [key] of [...exact.entries()]) {
+        if (String(key).includes(prefix)) {
+          removed.push(String(key));
+          exact.delete(key);
+        }
+      }
+    } else if (exact && typeof exact === 'object') {
+      for (const key of Object.keys(exact)) {
+        if (key.includes(prefix)) {
+          removed.push(key);
+          delete exact[key];
+        }
+      }
+    }
+  } catch (err) {
+    log('warn', { event: 'stale-route-cleanup-failed', message: err?.message ?? String(err) });
+    return;
+  }
+  if (removed.length > 0) log('warn', { event: 'stale-routes-cleared', count: removed.length, paths: removed });
+}
+
 function registerWebRoutes(ctx, manager, updateService, disposers, log) {
   let webServer;
   try {
@@ -144,6 +171,7 @@ function registerWebRoutes(ctx, manager, updateService, disposers, log) {
     log('debug', { event: 'web-routes-unavailable' });
     return;
   }
+  clearStaleRoutes(webServer, log);
   log('info', { event: 'web-routes-registered', version: PLUGIN_VERSION });
   const register = (path, handler) => {
     try {
