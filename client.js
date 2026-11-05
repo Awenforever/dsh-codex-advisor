@@ -68,6 +68,7 @@ window.__ModuleLoader__.load({
       statusPending: '上次请求未完成',
       statusFailed: '上次失败',
       statusEmpty: '尚未使用',
+      statusNoSession: '未打开会话',
       statusCompleted: '已完成',
       statusFailedTurn: '失败',
       statusInterrupted: '已中断',
@@ -91,6 +92,7 @@ window.__ModuleLoader__.load({
       version: '版本',
       updateAvailable: '有新版本',
       cardEmpty: '在对话里问一次 Codex',
+      cardNoSession: '打开一个会话后可用',
       cardFailed: '上次轮次没有完成',
       cardPending: '这次请求没有拿到回答，可在 Codex 轨迹里查看状态',
       cardWaiting: '还没有回答',
@@ -113,6 +115,7 @@ window.__ModuleLoader__.load({
       statusPending: 'Last request unfinished',
       statusFailed: 'Last turn failed',
       statusEmpty: 'Not used yet',
+      statusNoSession: 'No conversation open',
       statusCompleted: 'completed',
       statusFailedTurn: 'failed',
       statusInterrupted: 'interrupted',
@@ -136,6 +139,7 @@ window.__ModuleLoader__.load({
       version: 'version',
       updateAvailable: 'Update available',
       cardEmpty: 'Ask Codex in the conversation',
+      cardNoSession: 'Open a conversation to use it',
       cardFailed: 'The last turn did not complete',
       cardPending: 'The last request has no answer yet; open the Codex trail for the status',
       cardWaiting: 'No answer yet',
@@ -318,7 +322,7 @@ window.__ModuleLoader__.load({
       const hasAnswer = !failed && Boolean(answer);
       const pending = !failed && !hasAnswer && Boolean(snapshot?.thread_id) && Boolean(snapshot?.last_ask_at);
       const status = !sessionId
-        ? 'empty'
+        ? 'no-session'
         : failed
           ? 'failed'
           : hasAnswer
@@ -328,15 +332,17 @@ window.__ModuleLoader__.load({
               : snapshot?.thread_id
                 ? 'bound'
                 : 'empty';
-      const statusLabel = status === 'failed'
-        ? t('statusFailed')
-        : status === 'ready'
-          ? t('statusReady')
-          : status === 'pending'
-            ? t('statusPending')
-            : status === 'bound'
-              ? t('statusBound')
-              : t('statusEmpty');
+      const statusLabel = status === 'no-session'
+        ? t('statusNoSession')
+        : status === 'failed'
+          ? t('statusFailed')
+          : status === 'ready'
+            ? t('statusReady')
+            : status === 'pending'
+              ? t('statusPending')
+              : status === 'bound'
+                ? t('statusBound')
+                : t('statusEmpty');
       const statusColor = status === 'failed'
         ? '#dc2626'
         : status === 'ready'
@@ -346,7 +352,7 @@ window.__ModuleLoader__.load({
             : 'var(--dsw-alias-label-secondary)';
       const meta = [snapshot?.model, snapshot?.effort].filter(Boolean).join(' · ');
       const body = !sessionId
-        ? t('noSession')
+        ? t('cardNoSession')
         : failed
           ? (failure?.message || t('cardFailed'))
           : hasAnswer
@@ -559,10 +565,8 @@ window.__ModuleLoader__.load({
           h('div', { style: { minWidth: 0 } },
             h('div', { style: { display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' } },
               h('h1', { style: { margin: 0, fontSize: 20, fontWeight: 650, letterSpacing: '-0.01em' } }, t('tabTitle')),
-              h('span', { style: { fontSize: 10.5, color: 'var(--dsw-alias-label-secondary)', border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 999, padding: '1px 7px' } }, t('external')),
               h(VersionBadge, { t, update, version }),
             ),
-            h('div', { style: { marginTop: 5, color: 'var(--dsw-alias-label-secondary)', fontSize: 12.5 } }, t('subtitle')),
             h('div', { style: { marginTop: 10, display: 'flex', gap: 7, flexWrap: 'wrap', color: 'var(--dsw-alias-label-secondary)', fontSize: 11 } },
               meta ? h('span', { style: { border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 999, padding: '2px 8px' } }, meta) : null,
               h('span', { style: { border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 999, padding: '2px 8px' } }, `${turns.length} ${t('rounds')}`),
@@ -590,7 +594,7 @@ window.__ModuleLoader__.load({
           turns.map((turn) => h(TurnCard, { key: turn.turn_id ?? `${turn.status}-${turn.ask}`, turn, t })),
         ) : null,
         h('div', { style: { marginTop: 24, color: 'var(--dsw-alias-label-secondary)', fontSize: 10.5 } },
-          `${t('source')} · dsh-codex-advisor${version ? ` ${version}` : ''} · ${t('external')}`),
+          `${t('source')} · dsh-codex-advisor${version ? ` v${version}` : ''}`),
       ));
     }
 

@@ -1,42 +1,42 @@
 {
-  "name": "dsh-codex-advisor",
-  "version": "0.5.1",
-  "description": "Persistent Codex advisor threads callable from DSH sessions (app-server bridge) with a Codex tab and sidebar card.",
-  "private": true,
-  "type": "module",
-  "main": "index.js",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Awenforever/dsh-codex-advisor.git"
-  },
-  "exports": {
-    ".": "./index.js",
-    "./client": "./client.js",
-    "./locale/*.json": "./locale/*.json",
-    "./icon": "./icon.svg"
-  },
-  "files": [
-    "index.js",
-    "client.js",
-    "lib/*.mjs",
-    "cordis.patch.yml",
-    "locale/*.json",
-    "icon.svg",
-    "README.md",
-    "docs/*.md",
-    "LICENSE"
-  ],
-  "dsh": {
-    "bundle": {
-      "patch": "./cordis.patch.yml"
-    },
-    "client": {
-      "platform": "web",
-      "immediately": true
-    }
-  },
-  "engines": {
-    "node": ">=22"
-  },
-  "license": "MIT"
+    "name":  "dsh-codex-advisor",
+    "version":  "0.5.2",
+    "description":  "Persistent Codex advisor threads callable from DSH sessions (app-server bridge) with a Codex tab and sidebar card.",
+    "private":  true,
+    "type":  "module",
+    "main":  "index.js",
+    "repository":  {
+                       "type":  "git",
+                       "url":  "git+https://github.com/Awenforever/dsh-codex-advisor.git"
+                   },
+    "exports":  {
+                    ".":  "./index.js",
+                    "./client":  "./client.js",
+                    "./locale/*.json":  "./locale/*.json",
+                    "./icon":  "./icon.svg"
+                },
+    "files":  [
+                  "index.js",
+                  "client.js",
+                  "lib/*.mjs",
+                  "cordis.patch.yml",
+                  "locale/*.json",
+                  "icon.svg",
+                  "README.md",
+                  "docs/*.md",
+                  "LICENSE"
+              ],
+    "dsh":  {
+                "bundle":  {
+                               "patch":  "./cordis.patch.yml"
+                           },
+                "client":  {
+                               "platform":  "web",
+                               "immediately":  true
+                           }
+            },
+    "engines":  {
+                    "node":  "\u003e=22"
+                },
+    "license":  "MIT"
 }

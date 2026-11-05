@@ -87,6 +87,7 @@ Host `DESKTOP-KFSCV8C`, user `king_`, DSH `0.2.1-rc.5`, profile `desktop`.
 |---|---|---|
 | pre-install backup | PASS | `package.json`, `cordis.patch.yml`, `pnpm-lock.yaml` → `.bak-20261104-codex-advisor`; rollback script `C:\Users\king_\.dsh\codex-advisor-rollback.ps1` |
 | install via `plugin_manager` | PASS | initial 0.1.0, upgraded to 0.2.0, 0.3.0, 0.4.3, 0.5.0, then **0.5.1 cleanly from tag `v0.5.1`** (`application=applied`; dependency updated to the tag; GitHub release published); 6 tools; Host 0.5.1 |
+| 0.5.2 visual polish (release) | READY (not installed) | tag/release `v0.5.2` adds a clearer no-session card (`未打开会话 / 打开一个会话后可用`) and a simpler Codex panel header/source line; 29/29 tests; isolated web-app screenshots; production remains 0.5.1 live, install stays a user/plugin-manager action |
 | tools registered | PASS | Host `Tool.listTools` includes `codex_ask`, `codex_poll`, `codex_cancel`, `codex_status`, `codex_history`, `codex_reset` |
 | model/effort config | PASS | acceptance `model: gpt-6-luna`, `reasoningEffort: low`; after R1 switched to `reasoningEffort: max` (activate `2026-11-04T07:12:50.369Z`) |
 | activation | PASS | `events.ndjson` → `{"event":"activate","pid":9428,...,"t":"2026-11-04T04:03:04.084Z"}`, reloaded `05:14:06.755Z`, `07:12:50.369Z`, `08:34:43.974Z` (0.3.0), after restart `14:45:52.875Z` (pid 41584), 0.5.0 at `16:42:14.121Z`, clean 0.5.0 at `17:42:00.958Z`, 0.5.1 at `17:51:26.672Z`, and live 0.5.1 at `2026-11-05T01:43:55.471Z` (pid 50980; app started 09:43:49 +0800) |
