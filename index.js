@@ -184,15 +184,6 @@ function registerWebRoutes(ctx, manager, updateService, disposers, log) {
   register('/plugins/dsh-codex-advisor/ping', (request, response) => {
     writeJson(response, 200, { ok: true, version: PLUGIN_VERSION });
   });
-  register('/plugins/dsh-codex-advisor/diag', (request, response) => {
-    writeJson(response, 200, {
-      ok: true,
-      version: PLUGIN_VERSION,
-      desktop: isDesktopHost(ctx),
-      connection: Boolean(safeGet(ctx, 'connection')),
-      argvTail: process.argv.slice(-5),
-    });
-  });
   register('/plugins/dsh-codex-advisor/update', async (request, response) => {
     if (!acceptReadRequest(ctx, request, response)) return;
     try {

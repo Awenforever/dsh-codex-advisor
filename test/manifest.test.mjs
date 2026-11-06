@@ -9,8 +9,11 @@ const manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
 
 test('bundle manifest declares the patch and runtime files', () => {
   assert.equal(manifest.name, 'dsh-codex-advisor');
+  assert.equal(manifest.private, false);
   assert.equal(manifest.type, 'module');
   assert.equal(manifest.dsh?.bundle?.patch, './cordis.patch.yml');
+  assert.ok(manifest.engines?.dsh, 'public package must declare an engines.dsh range');
+  assert.ok(!manifest.files.includes('docs/*.md'), 'internal docs must not ship in the npm package');
   for (const file of ['index.js', 'cordis.patch.yml', 'locale/en.json', 'locale/zh.json', 'icon.svg', 'lib/jsonrpc.mjs', 'lib/codex.mjs', 'lib/manager.mjs', 'lib/store.mjs', 'lib/spawn.mjs']) {
     assert.ok(existsSync(join(ROOT, file)), `missing ${file}`);
   }

@@ -69,11 +69,11 @@ test('update check reports no update when the release is current', async () => {
   assert.equal(value.updateAvailable, false);
 });
 
-test('apply delegates to the plugin manager with the release spec', async () => {
+test('apply delegates to an official plugin-updates provider', async () => {
   let installed = null;
   const ctx = {
-    get: (key) => (key === 'pluginManager'
-      ? { installBundle: async (spec) => { installed = spec; return { application: 'applied', changed: true }; } }
+    get: (key) => (key === 'pluginUpdates'
+      ? { applyUpdate: async ({ id, spec }) => { installed = `${id}:${spec}`; return { application: 'applied', changed: true }; } }
       : undefined),
   };
   const service = new UpdateService(ctx, {
@@ -86,8 +86,30 @@ test('apply delegates to the plugin manager with the release spec', async () => 
   const result = await service.apply({ spec: info.spec });
   assert.equal(result.ok, true);
   assert.equal(result.application, 'applied');
-  assert.equal(installed, info.spec);
-  assert.equal(result.provider.id, 'dsh-plugin-manager');
+  assert.equal(installed, `dsh-codex-advisor:${info.spec}`);
+  assert.equal(result.provider.id, 'official-plugin-updates');
+});
+
+test('plugin manager is check-only because it has no upgrade API', async () => {
+  let installed = null;
+  const ctx = {
+    get: (key) => (key === 'pluginManager'
+      ? { installBundle: async (spec) => { installed = spec; return { application: 'applied', changed: true }; } }
+      : undefined),
+  };
+  const service = new UpdateService(ctx, {
+    currentVersion: '0.5.0',
+    now: () => 3500,
+    fetchImpl: async () => release('0.6.0'),
+  });
+  const info = await service.check(true);
+  assert.equal(info.canApply, false);
+  assert.equal(info.provider.id, 'dsh-plugin-manager');
+  assert.match(info.provider.label, /manual/);
+  const result = await service.apply({ spec: info.spec });
+  assert.equal(result.ok, false);
+  assert.equal(result.error, 'provider-unavailable');
+  assert.equal(installed, null);
 });
 
 test('apply rejects a stale spec and a manual provider', async () => {

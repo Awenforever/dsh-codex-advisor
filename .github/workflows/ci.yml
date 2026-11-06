@@ -36,3 +36,6 @@ jobs:
 
       - name: Failure-path harness
         run: node test/harness/failure-level.mjs
+
+      - name: Package dry run
+        run: npm pack --dry-run
