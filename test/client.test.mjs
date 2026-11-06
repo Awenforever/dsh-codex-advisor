@@ -1,8 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 
 const require = createRequire(import.meta.url);
+
+test('client follows DSH theme tokens instead of a fixed light palette', () => {
+  const source = readFileSync(new URL('../client.js', import.meta.url), 'utf8');
+  for (const token of [
+    '--dsw-alias-brand-primary',
+    '--dsw-alias-state-success-primary',
+    '--dsw-alias-state-error-primary',
+    '--dsw-alias-state-warn-primary',
+    '--dsw-alias-bg-layer-1',
+    '--dsw-alias-label-primary',
+  ]) {
+    assert.match(source, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `missing ${token}`);
+  }
+  assert.match(source, /color-mix\(in srgb/);
+  assert.doesNotMatch(source, /prefers-color-scheme/);
+  for (const retired of ['rgba(37, 99, 235', 'rgba(100, 116, 139', 'rgba(254, 226, 226', '#bbf7d0', '#fecaca', '#166534', '#b91c1c']) {
+    assert.equal(source.includes(retired), false, `light-only color remains: ${retired}`);
+  }
+});
 
 test('client registers and renders the card and panel without a session', () => {
   const components = new Map();

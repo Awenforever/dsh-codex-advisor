@@ -4,13 +4,14 @@ A persistent **Codex advisor** for [DeepSeek Harness](https://github.com/deepsee
 
 One DSH session can keep several labeled Codex threads. Continue a thread for the same objective, or start another for a different aspect or model class. Codex runs through the official `codex app-server` protocol under your existing ChatGPT/Codex login, so it uses your Codex quota rather than a separate API key.
 
-> **Current release: 0.7.0.** Tested with DSH Desktop `0.2.1-rc.5` on Windows 11 and Codex CLI `0.166.0-alpha.5.1`. See [Compatibility](#compatibility).
+> **Current release: 0.7.1.** Tested with DSH Desktop `0.2.1-rc.5` on Windows 11 and Codex CLI `0.166.0-alpha.5.1`. See [Compatibility](#compatibility).
 
 ## What you get
 
 - Six native tools: `codex_ask`, `codex_poll`, `codex_cancel`, `codex_status`, `codex_history`, `codex_reset`.
 - A **Codex trail** tab with thread rail, Markdown Ask/Answer blocks, activity, and a per-turn `model · effort` footnote.
 - A compact **Codex advisor** card in the sidebar with the active thread, latest ask/answer, status light, and model/effort.
+- **Theme-aware UI**: surfaces, Ask/Answer tints, status colors, errors, and the update modal use DSH semantic tokens and follow DSH light/dark automatically. There is no separate theme toggle.
 - State and thread bindings survive DSH restarts.
 - Explicit source/model/effort provenance on every tool result.
 
@@ -30,7 +31,7 @@ The plugin is not affiliated with OpenAI or DeepSeek. It uses your existing Code
 Install the release tarball through DSH's plugin manager:
 
 ```text
-https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.7.0.tar.gz
+https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.7.1.tar.gz
 ```
 
 After installation, add/keep the `codex-advisor` bundle and restart DSH if the Host requests it. A client-bundle change may require a full DSH quit/reopen or a page reload; the Codex tab and sidebar card appear after the client bundle is reloaded.
@@ -38,7 +39,7 @@ After installation, add/keep the `codex-advisor` bundle and restart DSH if the H
 ### Web / CLI profile
 
 ```powershell
-dsh plugin --profile <profile> add https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.7.0.tar.gz
+dsh plugin --profile <profile> add https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.7.1.tar.gz
 ```
 
 Then restart that DSH profile. For the app-managed `desktop` profile, use the app's plugin manager instead of editing the profile by hand.

@@ -196,11 +196,23 @@ window.__ModuleLoader__.load({
       return date.toLocaleString(undefined, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
     }
 
+    const THEME = {
+      brand: 'var(--dsw-alias-brand-primary, #2563eb)',
+      success: 'var(--dsw-alias-state-success-primary, #16a34a)',
+      error: 'var(--dsw-alias-state-error-primary, #dc2626)',
+      warn: 'var(--dsw-alias-state-warn-primary, #d97706)',
+      surface: 'var(--dsw-alias-bg-layer-1)',
+    };
+
+    function mixColor(color, weight, base = 'transparent') {
+      return `color-mix(in srgb, ${color} ${weight}%, ${base})`;
+    }
+
     function statusMeta(status, t) {
-      if (status === 'completed') return { label: t('statusCompleted'), color: '#16a34a' };
-      if (status === 'failed') return { label: t('statusFailedTurn'), color: '#dc2626' };
-      if (status === 'interrupted' || status === 'cancelled') return { label: t('statusInterrupted'), color: '#d97706' };
-      if (status === 'inProgress' || status === 'in_progress' || status === 'running') return { label: t('statusRunning'), color: '#2563eb' };
+      if (status === 'completed') return { label: t('statusCompleted'), color: THEME.success };
+      if (status === 'failed') return { label: t('statusFailedTurn'), color: THEME.error };
+      if (status === 'interrupted' || status === 'cancelled') return { label: t('statusInterrupted'), color: THEME.warn };
+      if (status === 'inProgress' || status === 'in_progress' || status === 'running') return { label: t('statusRunning'), color: THEME.brand };
       return { label: String(status ?? ''), color: 'var(--dsw-alias-label-secondary)' };
     }
 
@@ -506,9 +518,9 @@ window.__ModuleLoader__.load({
           marginBottom: 14,
           padding: '9px 11px',
           borderRadius: 8,
-          border: '1px solid #bbf7d0',
-          background: 'rgba(220, 252, 231, 0.35)',
-          color: '#166534',
+          border: `1px solid ${mixColor(THEME.success, 32, 'var(--dsw-alias-border-l1)')}`,
+          background: mixColor(THEME.success, 12, 'var(--dsw-alias-bg-layer-1)'),
+          color: 'var(--dsw-alias-state-success-primary)',
           fontSize: 12,
           lineHeight: 1.55,
         },
@@ -518,9 +530,9 @@ window.__ModuleLoader__.load({
           marginBottom: 14,
           padding: '9px 11px',
           borderRadius: 8,
-          border: '1px solid #fecaca',
-          background: 'rgba(254, 226, 226, 0.3)',
-          color: '#b91c1c',
+          border: `1px solid ${mixColor(THEME.error, 32, 'var(--dsw-alias-border-l1)')}`,
+          background: mixColor(THEME.error, 10, 'var(--dsw-alias-bg-layer-1)'),
+          color: 'var(--dsw-alias-state-error-primary)',
           fontSize: 12,
           lineHeight: 1.55,
           whiteSpace: 'pre-wrap',
@@ -815,7 +827,7 @@ window.__ModuleLoader__.load({
             height: 6,
             borderRadius: 99,
             flex: '0 0 auto',
-            background: thread.active ? '#16a34a' : 'var(--dsw-alias-border-l1)',
+            background: thread.active ? THEME.success : 'var(--dsw-alias-border-l1)',
           },
           title: thread.active ? 'active advisor thread' : 'inactive advisor thread',
         }),
@@ -925,11 +937,11 @@ window.__ModuleLoader__.load({
                 ? t('statusBound')
                 : t('statusEmpty');
       const statusColor = status === 'failed'
-        ? '#dc2626'
+        ? THEME.error
         : status === 'ready'
-          ? '#16a34a'
+          ? THEME.success
           : (status === 'pending' || status === 'bound')
-            ? '#d97706'
+            ? THEME.warn
             : 'var(--dsw-alias-label-secondary)';
       const when = failed
         ? formatWhen(failure?.at, t)
@@ -956,7 +968,7 @@ window.__ModuleLoader__.load({
                 ? t('cardEmpty')
                 : t('cardNoThread');
       const answerColor = failed
-        ? '#b91c1c'
+        ? THEME.error
         : hasAnswer
           ? 'var(--dsw-alias-label-primary)'
           : 'var(--dsw-alias-label-secondary)';
@@ -1061,10 +1073,10 @@ window.__ModuleLoader__.load({
           minWidth: 0,
           padding: '6px 8px 7px',
           borderRadius: 7,
-          background: 'rgba(37, 99, 235, 0.05)',
+          background: mixColor(THEME.brand, 10, 'var(--dsw-alias-bg-layer-1)'),
         },
       },
-        h('div', { style: { color: '#2563eb', fontSize: 9.5, fontWeight: 600, marginBottom: 2 } }, 'Ask'),
+        h('div', { style: { color: THEME.brand, fontSize: 9.5, fontWeight: 600, marginBottom: 2 } }, 'Ask'),
         h('div', {
           style: {
             fontSize: 11.5,
@@ -1084,10 +1096,10 @@ window.__ModuleLoader__.load({
           minWidth: 0,
           padding: '6px 8px 7px',
           borderRadius: 7,
-          background: 'rgba(100, 116, 139, 0.08)',
+          background: mixColor('var(--dsw-alias-label-primary)', 6, 'var(--dsw-alias-bg-layer-1)'),
         },
       },
-        h('div', { style: { color: failed ? '#b91c1c' : 'var(--dsw-alias-label-secondary)', fontSize: 9.5, fontWeight: 600, marginBottom: 2 } }, failed ? 'Failure' : 'Codex'),
+        h('div', { style: { color: failed ? THEME.error : 'var(--dsw-alias-label-secondary)', fontSize: 9.5, fontWeight: 600, marginBottom: 2 } }, failed ? 'Failure' : 'Codex'),
         h('div', {
           style: {
             color: answerColor,
@@ -1113,7 +1125,7 @@ window.__ModuleLoader__.load({
         },
       },
         activity ? h('span', { title: activity, style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 } }, activity) : null,
-        error ? h('span', { title: error, style: { marginLeft: 'auto', color: '#b91c1c', whiteSpace: 'nowrap' } }, t('error')) : null,
+        error ? h('span', { title: error, style: { marginLeft: 'auto', color: THEME.error, whiteSpace: 'nowrap' } }, t('error')) : null,
         loading && !snapshot ? h('span', { style: { marginLeft: 'auto', whiteSpace: 'nowrap' } }, t('loading')) : null,
       ) : null,
       updateOpen && modalUpdate ? h(UpdateModal, {
@@ -1131,7 +1143,7 @@ window.__ModuleLoader__.load({
       const files = Array.isArray(turn.files) ? turn.files : [];
       const failed = turn.status === 'failed' || Boolean(turn.error);
       const footnote = [turn.model, turn.effort].filter(Boolean).join(' · ');
-      const statusTint = /^#[0-9a-f]{6}$/i.test(meta.color) ? `${meta.color}14` : 'rgba(120, 120, 120, 0.08)';
+      const statusTint = mixColor(meta.color, 13);
       const activityLabel = [
         commands.length > 0 ? `${commands.length} command${commands.length === 1 ? '' : 's'}` : null,
         files.length > 0 ? `${files.length} file${files.length === 1 ? '' : 's'}` : null,
@@ -1153,7 +1165,7 @@ window.__ModuleLoader__.load({
           bottom: 2,
           width: 3,
           borderRadius: 999,
-          background: failed ? '#dc2626' : meta.color,
+          background: failed ? THEME.error : meta.color,
           pointerEvents: 'none',
         },
       }),
@@ -1181,7 +1193,7 @@ window.__ModuleLoader__.load({
           marginBottom: 18,
           padding: '12px 14px 13px',
           borderRadius: 12,
-          background: 'rgba(37, 99, 235, 0.055)',
+          background: mixColor(THEME.brand, 10, 'var(--dsw-alias-bg-layer-1)'),
           minWidth: 0,
         },
       },
@@ -1191,13 +1203,13 @@ window.__ModuleLoader__.load({
           alignItems: 'center',
           gap: 6,
           marginBottom: 6,
-          color: '#2563eb',
+          color: THEME.brand,
           fontSize: 11,
           fontWeight: 600,
           lineHeight: 1.2,
         },
       },
-      h('span', { style: { width: 5, height: 5, borderRadius: 99, background: '#2563eb' } }),
+      h('span', { style: { width: 5, height: 5, borderRadius: 99, background: THEME.brand } }),
       'Ask'),
       h(MarkdownText, {
         text: turn.ask,
@@ -1210,7 +1222,7 @@ window.__ModuleLoader__.load({
           minWidth: 0,
           padding: '12px 14px 13px',
           borderRadius: 12,
-          background: 'rgba(100, 116, 139, 0.08)',
+          background: mixColor('var(--dsw-alias-label-primary)', 6, 'var(--dsw-alias-bg-layer-1)'),
         },
       },
         h('div', {
@@ -1218,14 +1230,14 @@ window.__ModuleLoader__.load({
             display: 'flex',
             alignItems: 'center',
             gap: 6,
-            color: failed ? '#b91c1c' : 'var(--dsw-alias-label-secondary)',
+            color: failed ? THEME.error : 'var(--dsw-alias-label-secondary)',
             fontSize: 11,
             fontWeight: 600,
             lineHeight: 1.2,
             marginBottom: 6,
           },
         },
-        h('span', { style: { width: 5, height: 5, borderRadius: 99, background: failed ? '#dc2626' : 'var(--dsw-alias-label-secondary)' } }),
+        h('span', { style: { width: 5, height: 5, borderRadius: 99, background: failed ? THEME.error : 'var(--dsw-alias-label-secondary)' } }),
         failed ? 'Failure' : 'Codex'),
         turn.answer ? h(MarkdownText, {
           text: turn.answer,
@@ -1234,7 +1246,7 @@ window.__ModuleLoader__.load({
         }) : failed ? h(MarkdownText, {
           text: turn.error ?? t('noAnswer'),
           prefix: 'turn-failure',
-          style: { color: '#b91c1c', fontSize: 13.5, lineHeight: 1.65, maxWidth: 760 },
+          style: { color: THEME.error, fontSize: 13.5, lineHeight: 1.65, maxWidth: 760 },
         }) : h('div', {
           style: {
             color: 'var(--dsw-alias-label-secondary)',
@@ -1248,12 +1260,12 @@ window.__ModuleLoader__.load({
           marginTop: 10,
           padding: '9px 11px',
           borderRadius: 9,
-          background: 'rgba(254, 226, 226, 0.34)',
+          background: mixColor(THEME.error, 10, 'var(--dsw-alias-bg-layer-1)'),
         },
       }, h(MarkdownText, {
         text: turn.error,
         prefix: 'turn-error',
-        style: { color: '#b91c1c', fontSize: 12.5, lineHeight: 1.6 },
+        style: { color: THEME.error, fontSize: 12.5, lineHeight: 1.6 },
       })) : null,
       (commands.length > 0 || files.length > 0) ? h('details', {
         style: {
@@ -1436,10 +1448,10 @@ window.__ModuleLoader__.load({
         ),
         error ? h('div', {
           style: {
-            border: '1px solid #fecaca',
+            border: `1px solid ${mixColor(THEME.error, 32, 'var(--dsw-alias-border-l1)')}`,
             borderRadius: 12,
-            background: 'rgba(254, 226, 226, 0.3)',
-            color: '#b91c1c',
+            background: mixColor(THEME.error, 10, 'var(--dsw-alias-bg-layer-1)'),
+            color: 'var(--dsw-alias-state-error-primary)',
             padding: '12px 14px',
             fontSize: 12,
             lineHeight: 1.55,
@@ -1468,7 +1480,7 @@ window.__ModuleLoader__.load({
         ) : null,
         !error && sessionId && !loading && turns.length === 0 ? h('div', { style: { maxWidth: 520, margin: '52px auto 0', textAlign: 'center' } },
           h('div', { style: { width: 34, height: 34, margin: '0 auto 14px', border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 99, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
-            h('span', { style: { width: 6, height: 6, borderRadius: 99, background: '#16a34a' } })),
+            h('span', { style: { width: 6, height: 6, borderRadius: 99, background: THEME.success } })),
           h('div', { style: { fontSize: 16, fontWeight: 600, marginBottom: 6 } }, threads.length > 0 ? t('emptyTitle') : t('emptyTitle')),
           h('div', { style: { fontSize: 13.5, lineHeight: 1.65, color: 'var(--dsw-alias-label-secondary)' } }, t('emptyHint')),
         ) : null,
