@@ -197,7 +197,7 @@ window.__ModuleLoader__.load({
     }
 
     const THEME = {
-      brand: 'var(--dsw-alias-brand-primary, #2563eb)',
+      accent: 'var(--dsw-alias-link, #3b82f6)',
       success: 'var(--dsw-alias-state-success-primary, #16a34a)',
       error: 'var(--dsw-alias-state-error-primary, #dc2626)',
       warn: 'var(--dsw-alias-state-warn-primary, #d97706)',
@@ -212,7 +212,7 @@ window.__ModuleLoader__.load({
       if (status === 'completed') return { label: t('statusCompleted'), color: THEME.success };
       if (status === 'failed') return { label: t('statusFailedTurn'), color: THEME.error };
       if (status === 'interrupted' || status === 'cancelled') return { label: t('statusInterrupted'), color: THEME.warn };
-      if (status === 'inProgress' || status === 'in_progress' || status === 'running') return { label: t('statusRunning'), color: THEME.brand };
+      if (status === 'inProgress' || status === 'in_progress' || status === 'running') return { label: t('statusRunning'), color: THEME.accent };
       return { label: String(status ?? ''), color: 'var(--dsw-alias-label-secondary)' };
     }
 
@@ -1073,10 +1073,10 @@ window.__ModuleLoader__.load({
           minWidth: 0,
           padding: '6px 8px 7px',
           borderRadius: 7,
-          background: mixColor(THEME.brand, 10, 'var(--dsw-alias-bg-layer-1)'),
+          background: mixColor(THEME.accent, 10, 'var(--dsw-alias-bg-layer-1)'),
         },
       },
-        h('div', { style: { color: THEME.brand, fontSize: 9.5, fontWeight: 600, marginBottom: 2 } }, 'Ask'),
+        h('div', { style: { color: THEME.accent, fontSize: 9.5, fontWeight: 600, marginBottom: 2 } }, 'Ask'),
         h('div', {
           style: {
             fontSize: 11.5,
@@ -1193,7 +1193,7 @@ window.__ModuleLoader__.load({
           marginBottom: 18,
           padding: '12px 14px 13px',
           borderRadius: 12,
-          background: mixColor(THEME.brand, 10, 'var(--dsw-alias-bg-layer-1)'),
+          background: mixColor(THEME.accent, 10, 'var(--dsw-alias-bg-layer-1)'),
           minWidth: 0,
         },
       },
@@ -1203,13 +1203,13 @@ window.__ModuleLoader__.load({
           alignItems: 'center',
           gap: 6,
           marginBottom: 6,
-          color: THEME.brand,
+          color: THEME.accent,
           fontSize: 11,
           fontWeight: 600,
           lineHeight: 1.2,
         },
       },
-      h('span', { style: { width: 5, height: 5, borderRadius: 99, background: THEME.brand } }),
+      h('span', { style: { width: 5, height: 5, borderRadius: 99, background: THEME.accent } }),
       'Ask'),
       h(MarkdownText, {
         text: turn.ask,

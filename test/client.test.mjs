@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 test('client follows DSH theme tokens instead of a fixed light palette', () => {
   const source = readFileSync(new URL('../client.js', import.meta.url), 'utf8');
   for (const token of [
-    '--dsw-alias-brand-primary',
+    '--dsw-alias-link',
     '--dsw-alias-state-success-primary',
     '--dsw-alias-state-error-primary',
     '--dsw-alias-state-warn-primary',
@@ -17,6 +17,7 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   ]) {
     assert.match(source, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `missing ${token}`);
   }
+  assert.doesNotMatch(source, /--dsw-alias-brand-primary/);
   assert.match(source, /color-mix\(in srgb/);
   assert.doesNotMatch(source, /prefers-color-scheme/);
   for (const retired of ['rgba(37, 99, 235', 'rgba(100, 116, 139', 'rgba(254, 226, 226', '#bbf7d0', '#fecaca', '#166534', '#b91c1c']) {
