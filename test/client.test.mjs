@@ -9,6 +9,7 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   const source = readFileSync(new URL('../client.js', import.meta.url), 'utf8');
   for (const token of [
     '--dsw-alias-link',
+    '--dsw-alias-state-business-tertiary',
     '--dsw-alias-state-success-primary',
     '--dsw-alias-state-error-primary',
     '--dsw-alias-state-warn-primary',

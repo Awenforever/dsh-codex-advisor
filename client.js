@@ -198,6 +198,7 @@ window.__ModuleLoader__.load({
 
     const THEME = {
       accent: 'var(--dsw-alias-link, #3b82f6)',
+      askSurface: 'var(--dsw-alias-state-business-tertiary, #e4edfd)',
       success: 'var(--dsw-alias-state-success-primary, #16a34a)',
       error: 'var(--dsw-alias-state-error-primary, #dc2626)',
       warn: 'var(--dsw-alias-state-warn-primary, #d97706)',
@@ -1073,7 +1074,7 @@ window.__ModuleLoader__.load({
           minWidth: 0,
           padding: '6px 8px 7px',
           borderRadius: 7,
-          background: mixColor(THEME.accent, 10, 'var(--dsw-alias-bg-layer-1)'),
+          background: THEME.askSurface,
         },
       },
         h('div', { style: { color: THEME.accent, fontSize: 9.5, fontWeight: 600, marginBottom: 2 } }, 'Ask'),
@@ -1193,7 +1194,7 @@ window.__ModuleLoader__.load({
           marginBottom: 18,
           padding: '12px 14px 13px',
           borderRadius: 12,
-          background: mixColor(THEME.accent, 10, 'var(--dsw-alias-bg-layer-1)'),
+          background: THEME.askSurface,
           minWidth: 0,
         },
       },
