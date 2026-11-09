@@ -13,15 +13,15 @@ window.__ModuleLoader__.load({
     const activeSessionListeners = new Set();
 
     function setActiveSession(id) {
-      if (activeSessionId === id) return;
-      activeSessionId = id;
+      const next = typeof id === 'string' && id ? id : null;
+      if (activeSessionId === next) return;
+      activeSessionId = next;
       for (const listener of activeSessionListeners) listener();
     }
 
     function clearActiveSession(id) {
       if (activeSessionId !== id) return;
-      activeSessionId = null;
-      for (const listener of activeSessionListeners) listener();
+      setActiveSession(null);
     }
 
     function subscribeActiveSession(listener) {
@@ -42,13 +42,188 @@ window.__ModuleLoader__.load({
       return value;
     }
 
+    // A split-view host renders one conversation.composer.dock per pane. The
+    // session id alone cannot tell which pane has focus, so each probe renders
+    // a hidden marker and a document-level focus/pointer resolver picks the
+    // pane whose DOM contains the event target. This intentionally has no
+    // dependency on a particular split plugin's class names or state.
+    //
+    // Support boundary: verified against the latest dsh-multiview only (0.1.20,
+    // DSH 0.2.2-rc.1). Older split-view releases are not shimmed; when a newer
+    // release changes focus semantics, the supported target moves forward.
+    const sessionProbes = new Map();
+    let sessionProbeListening = false;
+    let sessionProbeObserver = null;
+
+    function nearestCommonAncestor(a, b) {
+      const seen = new Set();
+      for (let node = a; node; node = node.parentElement) seen.add(node);
+      for (let node = b; node; node = node.parentElement) {
+        if (seen.has(node)) return node;
+      }
+      return null;
+    }
+
+    function elementDepth(node) {
+      let depth = 0;
+      for (let current = node; current; current = current.parentElement) depth += 1;
+      return depth;
+    }
+
+    function hasOtherSessionMarker(container, sessionId, probes = sessionProbes) {
+      if (!container || typeof container.contains !== 'function') return false;
+      for (const [otherId, markers] of probes) {
+        if (otherId === sessionId) continue;
+        for (const marker of markers) {
+          if (container.contains(marker)) return true;
+        }
+      }
+      return false;
+    }
+
+    function resolveSessionForTarget(target, probes = sessionProbes, doc = typeof document !== 'undefined' ? document : null) {
+      if (!doc) return null;
+      if (target && target.nodeType !== 1) target = target.parentElement ?? null;
+      if (!target) return null;
+      let best = null;
+      for (const [id, markers] of probes) {
+        for (const marker of markers) {
+          const common = nearestCommonAncestor(marker, target);
+          if (!common || common === doc.body || common === doc.documentElement) continue;
+          // A common ancestor that also contains another session marker is a
+          // shared split container/toolbar, not a pane; never switch on it.
+          if (hasOtherSessionMarker(common, id, probes)) continue;
+          const depth = elementDepth(common);
+          if (!best || depth > best.depth || (depth === best.depth && id === activeSessionId)) {
+            best = { id, depth };
+          }
+        }
+      }
+      return best ? best.id : null;
+    }
+
+    function findExplicitFocusedSession(probes = sessionProbes, doc = typeof document !== 'undefined' ? document : null) {
+      if (!doc) return null;
+      let best = null;
+      for (const [id, markers] of probes) {
+        for (const marker of markers) {
+          for (let node = marker.parentElement; node && node !== doc.body && node !== doc.documentElement; node = node.parentElement) {
+            const focused = node.getAttribute?.('data-focused');
+            const selected = node.getAttribute?.('aria-selected');
+            if (focused !== 'true' && selected !== 'true') continue;
+            // An explicit focus marker inside a shared shell would be
+            // ambiguous; let target resolution handle the click instead.
+            if (hasOtherSessionMarker(node, id, probes)) continue;
+            const priority = focused === 'true' ? 2 : 1;
+            const depth = elementDepth(node);
+            if (!best || priority > best.priority || (priority === best.priority && depth > best.depth)) {
+              best = { id, priority, depth };
+            }
+            break;
+          }
+        }
+      }
+      return best ? best.id : null;
+    }
+
+    function syncFocusedSession() {
+      const explicit = findExplicitFocusedSession();
+      if (explicit) {
+        setActiveSession(explicit);
+        return;
+      }
+      if (typeof document !== 'undefined' && document.activeElement) {
+        const focused = resolveSessionForTarget(document.activeElement);
+        if (focused) setActiveSession(focused);
+      }
+    }
+
+    function handleSessionFocusEvent(event) {
+      const id = resolveSessionForTarget(event.target);
+      if (id) setActiveSession(id);
+    }
+
+    function ensureSessionProbeListeners() {
+      if (sessionProbeListening || typeof document === 'undefined') return;
+      sessionProbeListening = true;
+      document.addEventListener('focusin', handleSessionFocusEvent, true);
+      document.addEventListener('pointerdown', handleSessionFocusEvent, true);
+      if (typeof MutationObserver !== 'undefined' && document.body) {
+        sessionProbeObserver = new MutationObserver(() => syncFocusedSession());
+        sessionProbeObserver.observe(document.body, {
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['data-focused', 'aria-selected'],
+        });
+      }
+    }
+
+    function releaseSessionProbeListeners() {
+      if (!sessionProbeListening || typeof document === 'undefined') return;
+      sessionProbeListening = false;
+      document.removeEventListener('focusin', handleSessionFocusEvent, true);
+      document.removeEventListener('pointerdown', handleSessionFocusEvent, true);
+      if (sessionProbeObserver) {
+        sessionProbeObserver.disconnect();
+        sessionProbeObserver = null;
+      }
+    }
+
+    function registerSessionProbe(id, marker) {
+      if (!id || !marker) return () => {};
+      let markers = sessionProbes.get(id);
+      if (!markers) {
+        markers = new Set();
+        sessionProbes.set(id, markers);
+      }
+      markers.add(marker);
+      ensureSessionProbeListeners();
+      if (activeSessionId === null || !sessionProbes.has(activeSessionId)) setActiveSession(id);
+      syncFocusedSession();
+      let registered = true;
+      return () => {
+        if (!registered) return;
+        registered = false;
+        const current = sessionProbes.get(id);
+        if (current) {
+          current.delete(marker);
+          if (current.size === 0) sessionProbes.delete(id);
+        }
+        if (activeSessionId === id && !sessionProbes.has(id)) {
+          const explicit = findExplicitFocusedSession();
+          if (explicit) {
+            setActiveSession(explicit);
+          } else {
+            const focused = typeof document !== 'undefined' && document.activeElement
+              ? resolveSessionForTarget(document.activeElement)
+              : null;
+            if (focused) {
+              setActiveSession(focused);
+            } else {
+              const next = sessionProbes.keys().next();
+              if (!next.done) setActiveSession(next.value);
+              else clearActiveSession(id);
+            }
+          }
+        }
+        if (sessionProbes.size === 0) releaseSessionProbeListeners();
+      };
+    }
+
     function SessionProbe(props) {
       const id = typeof props.sessionId === 'string' ? props.sessionId : null;
+      const markerRef = React.useRef(null);
       React.useLayoutEffect(() => {
-        setActiveSession(id);
-        return () => clearActiveSession(id);
+        const marker = markerRef.current;
+        if (!marker || !id) return undefined;
+        return registerSessionProbe(id, marker);
       }, [id]);
-      return null;
+      return h('span', {
+        ref: markerRef,
+        'data-codex-advisor-session-probe': id || '',
+        'aria-hidden': true,
+        style: { display: 'none' },
+      });
     }
 
     const zh = {
@@ -1345,6 +1520,8 @@ window.__ModuleLoader__.load({
     function CodexView(props) {
       const t = useT(props);
       const active = useActiveSession();
+      // A pane-owned view keeps its own session; focus only changes the
+      // fallback for views that did not receive a sessionId from the host.
       const sessionId = typeof props.sessionId === 'string' && props.sessionId ? props.sessionId : active;
       const updateState = useUpdate();
       const [updateOpen, setUpdateOpen] = React.useState(false);
@@ -1505,7 +1682,19 @@ window.__ModuleLoader__.load({
         const t = ctx.locale.bind(NS);
         fallbackT = t;
         if (typeof window !== 'undefined' && window.__CODEX_ADVISOR_TEST__ === true) {
-          window.__codexAdvisorTest = { renderMarkdown, renderInlineMarkdown, ThreadRail, TurnCard };
+          window.__codexAdvisorTest = {
+            renderMarkdown,
+            renderInlineMarkdown,
+            ThreadRail,
+            TurnCard,
+            SessionProbe,
+            getActiveSession,
+            setActiveSession,
+            nearestCommonAncestor,
+            resolveSessionForTarget,
+            findExplicitFocusedSession,
+            registerSessionProbe,
+          };
         }
 
         ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({

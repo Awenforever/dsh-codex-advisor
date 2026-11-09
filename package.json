@@ -1,6 +1,6 @@
 {
   "name": "dsh-codex-advisor",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "Persistent Codex advisor threads for DeepSeek Harness sessions, with a Codex trail, a sidebar status card, and model/effort provenance.",
   "private": false,
   "type": "module",

@@ -21,12 +21,13 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   assert.doesNotMatch(source, /--dsw-alias-brand-primary/);
   assert.match(source, /color-mix\(in srgb/);
   assert.doesNotMatch(source, /prefers-color-scheme/);
+  assert.match(source, /Support boundary: verified against the latest dsh-multiview only/);
   for (const retired of ['rgba(37, 99, 235', 'rgba(100, 116, 139', 'rgba(254, 226, 226', '#bbf7d0', '#fecaca', '#166534', '#b91c1c']) {
     assert.equal(source.includes(retired), false, `light-only color remains: ${retired}`);
   }
 });
 
-test('client registers and renders the card and panel without a session', () => {
+test('client registers, renders, and resolves split-pane session focus', () => {
   const components = new Map();
   const elements = [];
   const React = {
@@ -76,6 +77,92 @@ test('client registers and renders the card and panel without a session', () => 
 
   const hooks = global.window.__codexAdvisorTest;
   assert.ok(hooks);
+
+  const fakeElement = (name, parent, attrs = {}) => {
+    const node = {
+      nodeType: 1,
+      name,
+      parentElement: parent,
+      attrs,
+      contains(candidate) {
+        for (let current = candidate; current; current = current.parentElement) {
+          if (current === node) return true;
+        }
+        return false;
+      },
+      getAttribute(key) {
+        return Object.prototype.hasOwnProperty.call(attrs, key) ? attrs[key] : null;
+      },
+    };
+    return node;
+  };
+  const documentElement = fakeElement('documentElement', null);
+  const body = fakeElement('body', documentElement);
+  const shell = fakeElement('split-shell', body);
+  const paneA = fakeElement('pane-a', shell, { 'aria-selected': 'true' });
+  const composerA = fakeElement('composer-a', paneA);
+  const markerA = fakeElement('marker-a', composerA);
+  const targetA = fakeElement('target-a', paneA);
+  const paneB = fakeElement('pane-b', shell);
+  const composerB = fakeElement('composer-b', paneB);
+  const markerB = fakeElement('marker-b', composerB);
+  const targetB = fakeElement('target-b', paneB);
+  const targetShared = fakeElement('shared-toolbar', shell);
+  const probes = new Map([
+    ['session-a', new Set([markerA])],
+    ['session-b', new Set([markerB])],
+  ]);
+  assert.equal(hooks.resolveSessionForTarget(targetA, probes, { body, documentElement }), 'session-a');
+  assert.equal(hooks.resolveSessionForTarget(targetShared, probes, { body, documentElement }), null);
+  assert.equal(hooks.findExplicitFocusedSession(probes, { body, documentElement }), 'session-a');
+  paneB.attrs['aria-selected'] = 'true';
+  paneA.attrs['aria-selected'] = 'false';
+  paneB.attrs['data-focused'] = 'true';
+  assert.equal(hooks.findExplicitFocusedSession(probes, { body, documentElement }), 'session-b');
+  paneA.attrs['data-focused'] = 'true';
+  assert.equal(hooks.findExplicitFocusedSession(probes, { body, documentElement }), 'session-a');
+  delete paneA.attrs['data-focused'];
+  paneA.attrs['aria-selected'] = 'true';
+  paneB.attrs['aria-selected'] = 'false';
+  delete paneB.attrs['data-focused'];
+  const probe = hooks.SessionProbe({ sessionId: 'session-a' });
+  assert.equal(probe.type, 'span');
+  assert.equal(probe.props['data-codex-advisor-session-probe'], 'session-a');
+  assert.equal(probe.props.style.display, 'none');
+  const listeners = new Map();
+  const fakeDocument = {
+    body,
+    documentElement,
+    activeElement: null,
+    addEventListener(type, listener) {
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type).add(listener);
+    },
+    removeEventListener(type, listener) {
+      listeners.get(type)?.delete(listener);
+    },
+    dispatch(type, target) {
+      for (const listener of listeners.get(type) ?? []) listener({ target });
+    },
+  };
+  global.document = fakeDocument;
+  hooks.setActiveSession(null);
+  const offA = hooks.registerSessionProbe('session-a', markerA);
+  const offB = hooks.registerSessionProbe('session-b', markerB);
+  assert.equal(hooks.getActiveSession(), 'session-a');
+  fakeDocument.dispatch('pointerdown', targetA);
+  assert.equal(hooks.getActiveSession(), 'session-a');
+  fakeDocument.dispatch('pointerdown', targetB);
+  assert.equal(hooks.getActiveSession(), 'session-b');
+  fakeDocument.dispatch('pointerdown', targetShared);
+  assert.equal(hooks.getActiveSession(), 'session-b');
+  fakeDocument.dispatch('pointerdown', targetA);
+  assert.equal(hooks.getActiveSession(), 'session-a');
+  offA();
+  assert.equal(hooks.getActiveSession(), 'session-b');
+  offB();
+  assert.equal(hooks.getActiveSession(), null);
+  delete global.document;
 
   const flattenTypes = (node, out = []) => {
     if (node === null || node === undefined || typeof node === 'string') return out;

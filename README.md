@@ -4,14 +4,14 @@ A persistent **Codex advisor** for [DeepSeek Harness](https://github.com/deepsee
 
 One DSH session can keep several labeled Codex threads. Continue a thread for the same objective, or start another for a different aspect or model class. Codex runs through the official `codex app-server` protocol under your existing ChatGPT/Codex login, so it uses your Codex quota rather than a separate API key.
 
-> **Current release: 0.7.4.** Tested with DSH Desktop `0.2.1-rc.5` on Windows 11 and Codex CLI `0.166.0-alpha.5.1`. See [Compatibility](#compatibility).
+> **Current release: 0.7.5.** Tested with DSH Desktop `0.2.1-rc.5` on Windows 11 and Codex CLI `0.166.0-alpha.5.1`. See [Compatibility](#compatibility).
 
 ## What you get
 
 - Six native tools: `codex_ask`, `codex_poll`, `codex_cancel`, `codex_status`, `codex_history`, `codex_reset`.
 - A **Codex trail** tab with thread rail, Markdown Ask/Answer blocks, activity, and a per-turn `model · effort` footnote.
 - A compact **Codex advisor** card in the sidebar with the active thread, latest ask/answer, status light, and model/effort.
-- **Split-pane aware**: the sidebar card follows the focused pane; a pane-owned view keeps its own `sessionId`, and shared split containers/toolbars do not steal focus.
+- **Split-pane aware**: the sidebar card follows the focused pane; a pane-owned view keeps its own `sessionId`, and shared split containers/toolbars do not steal focus. Focus switching only reads snapshots — it never calls `codex_ask` or writes thread/state. Tested against the latest `dsh-multiview` (`0.1.20`); older split-view versions are not supported.
 - **Theme-aware UI**: surfaces, Ask/Answer tints, status colors, errors, and the update modal use DSH semantic tokens and follow DSH light/dark automatically. There is no separate theme toggle.
 - State and thread bindings survive DSH restarts.
 - Explicit source/model/effort provenance on every tool result.
@@ -32,7 +32,7 @@ The plugin is not affiliated with OpenAI or DeepSeek. It uses your existing Code
 Install the release tarball through DSH's plugin manager:
 
 ```text
-https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.7.4.tar.gz
+https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.7.5.tar.gz
 ```
 
 After installation, add/keep the `codex-advisor` bundle and restart DSH if the Host requests it. A client-bundle change may require a full DSH quit/reopen or a page reload; the Codex tab and sidebar card appear after the client bundle is reloaded.
@@ -40,7 +40,7 @@ After installation, add/keep the `codex-advisor` bundle and restart DSH if the H
 ### Web / CLI profile
 
 ```powershell
-dsh plugin --profile <profile> add https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.7.4.tar.gz
+dsh plugin --profile <profile> add https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.7.5.tar.gz
 ```
 
 Then restart that DSH profile. For the app-managed `desktop` profile, use the app's plugin manager instead of editing the profile by hand.
@@ -105,6 +105,7 @@ All fields are optional. Set them in the `codex-advisor` bundle config.
 ## Compatibility and limitations
 
 - **Windows 11 / DSH Desktop `0.2.1-rc.5`** is the primary tested target. The Codex auto-discovery path is Windows-specific; other systems must set `codexCommand`.
+- **Split-pane focus is tested against the latest `dsh-multiview` only** (`0.1.20` at this release, on DSH `0.2.2-rc.1`). This plugin does not carry per-version shims for older split-view plugins: if a split-view release changes its focus semantics, the supported target moves to that newer release rather than adding backward compatibility. If you use an older `dsh-multiview`, focus following is unsupported and may stick to the last-mounted pane.
 - Codex `app-server` is an experimental interface. A thread has one writer; if Codex Desktop holds the thread, the bridge reports `CODEX_THREAD_BUSY`.
 - Quota and account model availability are controlled by Codex, not this plugin.
 - Markdown rendering covers headings, lists, code fences, inline code, emphasis, links, blockquotes, and rules. Tables, images, and raw HTML are not rendered as HTML.
