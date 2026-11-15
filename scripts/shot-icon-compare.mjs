@@ -37,26 +37,23 @@ const iconPaths = (paths, widths, transform = '', extra = '') => '<span class="m
   (transform ? '</g>' : '') +
   '</svg></span>';
 const scaled = 'translate(2 2) scale(0.833333)';
-const final = iconPaths(parts.slice(0, 3).map((part) => 'M' + part), ['2', '2', '2'], scaled);
+const final = icon(path, '1', scaled);
 const cells = [
   ['Memory', memory],
   ['Codex Advisor 13px', final],
-  ['first3 · 2.0 explicit', iconPaths(parts.slice(0, 3).map((part) => 'M' + part), ['2.0', '2.0', '2.0'], scaled)],
-  ['first3 · 2.25 explicit', iconPaths(parts.slice(0, 3).map((part) => 'M' + part), ['2.25', '2.25', '2.25'], scaled)],
-  ['current 0.9 scaled', icon(path, '0.9', scaled)],
-  ['full 1.2', icon(path, '1.2')],
+  ['full · 0.8', icon(path, '0.8', scaled)],
+  ['full · 1.2', icon(path, '1.2', scaled)],
+  ['full · 1.5', icon(path, '1.5', scaled)],
 ];
 const row = (theme, list = cells, scale = 1) => '<div class="theme ' + theme + '"><div class="label">' + theme.toUpperCase() + '</div><div class="row">' +
   list.map(([name, svg]) => '<div class="cell" style="width:' + (scale > 1 ? 120 : 88) + 'px"><span class="icon" style="flex:0 0 ' + (13 * scale) + 'px;width:' + (13 * scale) + 'px;height:' + (13 * scale) + 'px"><span style="display:block;transform:scale(' + scale + ');transform-origin:center">' + svg + '</span></span><span class="name">' + name + '</span></div>').join('') +
   '</div></div>';
 const detail = [
   ['Memory', memory],
-  ['current 0.9 scaled', icon(path, '0.9', scaled)],
+  ['full · 0.8', icon(path, '0.8', scaled)],
   ['Codex Advisor 13px', final],
-  ['first3 · 2.0 explicit', iconPaths(parts.slice(0, 3).map((part) => 'M' + part), ['2.0', '2.0', '2.0'], scaled)],
-  ['first3 · 2.25 explicit', iconPaths(parts.slice(0, 3).map((part) => 'M' + part), ['2.25', '2.25', '2.25'], scaled)],
-  ['first3 · 2.5 explicit', iconPaths(parts.slice(0, 3).map((part) => 'M' + part), ['2.5', '2.5', '2.5'], scaled)],
-  ['first3 · 1.0 non-scaling', iconPaths(parts.slice(0, 3).map((part) => 'M' + part), ['1.0', '1.0', '1.0'], scaled, 'vector-effect="non-scaling-stroke"')],
+  ['full · 1.2', icon(path, '1.2', scaled)],
+  ['full · 1.5', icon(path, '1.5', scaled)],
 ];
 const tokens = (values) => Object.entries(values).map(([k,v]) => k + ':' + v).join(';');
 const html = '<!doctype html><html><head><meta charset="utf-8"><style>' +
