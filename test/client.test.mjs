@@ -25,6 +25,13 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   for (const retired of ['rgba(37, 99, 235', 'rgba(100, 116, 139', 'rgba(254, 226, 226', '#bbf7d0', '#fecaca', '#166534', '#b91c1c']) {
     assert.equal(source.includes(retired), false, `light-only color remains: ${retired}`);
   }
+  assert.match(source, /cardTitle: 'Codex Advisor'/);
+  assert.match(source, /function AdvisorMark/);
+  assert.match(source, /CHATGPT_MARK_PATH/);
+  assert.match(source, /flex: '0 0 14px'/);
+  assert.match(source, /stroke: 'currentColor'/);
+  assert.match(source, /fill: 'none'/);
+  assert.match(source, /h\(AdvisorMark\)/);
 });
 
 test('client registers, renders, and resolves split-pane session focus', () => {
