@@ -28,7 +28,12 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   assert.match(source, /cardTitle: 'Codex Advisor'/);
   assert.match(source, /function AdvisorMark/);
   assert.match(source, /CHATGPT_MARK_PATH/);
-  assert.match(source, /flex: '0 0 14px'/);
+  assert.match(source, /flex: '0 0 13px'/);
+  assert.match(source, /width: 13,/);
+  assert.match(source, /height: 13,/);
+  assert.match(source, /viewBox: '0 0 24 24'/);
+  assert.match(source, /translate\(2 2\) scale\(0\.833333\)/);
+  assert.match(source, /strokeWidth: 0\.9/);
   assert.match(source, /stroke: 'currentColor'/);
   assert.match(source, /fill: 'none'/);
   assert.match(source, /h\(AdvisorMark\)/);
