@@ -19,6 +19,16 @@ const STATE_PATH = process.env.FAKE_CODEX_STATE || '';
 const MODE = process.env.FAKE_CODEX_MODE || 'normal';
 const DELAY = Number(process.env.FAKE_CODEX_TURN_DELAY_MS || 30);
 const PREFIX = process.env.FAKE_CODEX_ANSWER_PREFIX || 'pong:';
+const DEFAULT_MODELS = [
+  { id: 'gpt-6-astra', hidden: false },
+  { id: 'gpt-6.1-sol', hidden: false },
+  { id: 'gpt-6.1-terra', hidden: false },
+  { id: 'gpt-6-luna', hidden: false },
+];
+let MODELS = DEFAULT_MODELS;
+try {
+  if (process.env.FAKE_CODEX_MODELS) MODELS = JSON.parse(process.env.FAKE_CODEX_MODELS);
+} catch { /* use defaults */ }
 const QUOTA_RESET = Number(process.env.FAKE_CODEX_QUOTA_RESET || Math.floor(Date.now() / 1000) + 3600);
 
 let state = { threads: {}, locks: {}, requests: [] };
@@ -185,6 +195,10 @@ rl.on('line', (line) => {
         });
       }
       return;
+    case 'model/list': {
+      reply(id, { data: MODELS });
+      return;
+    }
     case 'thread/start': {
       const thread = {
         id: `thr-${randomUUID()}`,

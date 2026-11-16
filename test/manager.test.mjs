@@ -11,7 +11,7 @@ import { nodeSpawn } from '../lib/spawn.mjs';
 const FAKE = fileURLToPath(new URL('./fake-app-server.mjs', import.meta.url));
 const CWD = process.cwd();
 
-function makeManager({ mode = 'normal', dir, statePath, defaultWaitSeconds = 5, maxWaitSeconds = 10 }) {
+function makeManager({ mode = 'normal', dir, statePath, defaultWaitSeconds = 5, maxWaitSeconds = 10, models = null }) {
   const store = new AdvisorStore({ dir });
   store.load();
   const config = resolveConfig({
@@ -25,6 +25,7 @@ function makeManager({ mode = 'normal', dir, statePath, defaultWaitSeconds = 5, 
       FAKE_CODEX_STATE: statePath,
       FAKE_CODEX_MODE: mode,
       FAKE_CODEX_TURN_DELAY_MS: '20',
+      ...(models ? { FAKE_CODEX_MODELS: JSON.stringify(models) } : {}),
     },
   });
   const manager = new AdvisorManager({
@@ -173,7 +174,7 @@ test('labeled threads pin a model while effort can vary', async () => {
   const { manager } = makeManager({ dir, statePath: join(dir, 'state.json') });
   const first = await manager.ask({ message: 'implement a small parser' }, execFor());
   assert.equal(first.status, 'completed');
-  assert.equal(first.model, 'gpt-6.1-sol');
+  assert.equal(first.model, 'gpt-6.1-terra');
   assert.equal(first.effort, 'medium');
 
   const architecture = await manager.ask({
@@ -209,5 +210,47 @@ test('labeled threads pin a model while effort can vary', async () => {
   const history = await manager.history({ thread: 'Architecture review' }, execFor());
   assert.equal(history.label, 'Architecture review');
   assert.ok(history.turns.some((turn) => turn.model === 'gpt-6-astra' && turn.effort === 'xhigh'));
+  await manager.dispose();
+});
+
+test('purpose routing uses terra for general/explore and follows the newest model family version', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'advisor-mgr-'));
+  const models = [
+    { id: 'gpt-6-astra', hidden: false },
+    { id: 'gpt-6.1-sol', hidden: false },
+    { id: 'gpt-6.1-terra', hidden: false },
+    { id: 'gpt-6.2-terra', hidden: false },
+    { id: 'gpt-6-luna', hidden: false },
+    { id: 'gpt-6.1-luna', hidden: false },
+    { id: 'gpt-6.3-luna', hidden: true },
+  ];
+  const { manager } = makeManager({ dir, statePath: join(dir, 'state.json'), models });
+
+  const general = await manager.ask({ message: 'general question', purpose: 'general' }, execFor('general'));
+  assert.equal(general.model, 'gpt-6.2-terra');
+  assert.equal(general.effort, 'medium');
+
+  const explore = await manager.ask({ message: 'compare options', purpose: 'explore', new_thread: true }, execFor('explore'));
+  assert.equal(explore.model, 'gpt-6.2-terra');
+  assert.equal(explore.effort, 'high');
+
+  const routine = await manager.ask({ message: 'read the status', purpose: 'routine', new_thread: true }, execFor('routine'));
+  assert.equal(routine.model, 'gpt-6.1-luna');
+  assert.equal(routine.effort, 'low');
+
+  const verify = await manager.ask({ message: 'run the bounded check', purpose: 'verify', new_thread: true }, execFor('verify'));
+  assert.equal(verify.model, 'gpt-6.1-luna');
+  assert.equal(verify.effort, 'medium');
+
+  const alias = await manager.ask({ message: 'pin the family', model: 'luna', new_thread: true }, execFor('alias'));
+  assert.equal(alias.model, 'gpt-6.1-luna');
+
+  const exact = await manager.ask({ message: 'pin the exact version', model: 'gpt-6-luna', new_thread: true }, execFor('exact'));
+  assert.equal(exact.model, 'gpt-6-luna');
+
+  const status = await manager.status({}, execFor('general'));
+  assert.equal(status.routing.default_purpose, 'general');
+  assert.equal(status.routing.latest.terra, 'gpt-6.2-terra');
+  assert.equal(status.routing.latest.luna, 'gpt-6.1-luna');
   await manager.dispose();
 });

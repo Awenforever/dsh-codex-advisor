@@ -24,6 +24,7 @@ jobs:
           node --check lib/jsonrpc.mjs
           node --check lib/store.mjs
           node --check lib/codex.mjs
+          node --check lib/models.mjs
           node --check lib/manager.mjs
           node --check lib/update.mjs
           node --check lib/spawn.mjs
