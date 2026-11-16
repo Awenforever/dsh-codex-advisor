@@ -257,6 +257,8 @@ window.__ModuleLoader__.load({
       commands: '命令',
       files: '文件',
       rounds: '轮',
+      moveToLeft: '移到左侧栏',
+      moveToRight: '移到右侧面板',
       lastActivity: '上次活动',
       lastAnswer: '上次回答',
       justNow: '刚刚',
@@ -304,6 +306,8 @@ window.__ModuleLoader__.load({
       commands: 'Commands',
       files: 'Files',
       rounds: 'turns',
+      moveToLeft: 'Move to left sidebar',
+      moveToRight: 'Move to right panel',
       lastActivity: 'Last activity',
       lastAnswer: 'Last answer',
       justNow: 'just now',
@@ -1109,9 +1113,69 @@ window.__ModuleLoader__.load({
         }))));
     }
 
+    const PANEL_POSITION_KEY = 'dsh-codex-advisor:position';
+    const panelPositionListeners = new Set();
+
+    function readPanelPosition() {
+      try {
+        return window.localStorage.getItem(PANEL_POSITION_KEY) === 'right' ? 'right' : 'left';
+      } catch {
+        return 'left';
+      }
+    }
+
+    function writePanelPosition(next) {
+      try {
+        window.localStorage.setItem(PANEL_POSITION_KEY, next);
+      } catch {
+        // Storage unavailable: keep the position for this page session.
+      }
+      for (const listener of panelPositionListeners) listener();
+    }
+
+    function subscribePanelPosition(listener) {
+      panelPositionListeners.add(listener);
+      return () => { panelPositionListeners.delete(listener); };
+    }
+
+    function usePanelPosition() {
+      if (typeof React.useSyncExternalStore === 'function') {
+        return React.useSyncExternalStore(subscribePanelPosition, readPanelPosition, readPanelPosition);
+      }
+      const [value, setValue] = React.useState(readPanelPosition);
+      React.useEffect(() => {
+        setValue(readPanelPosition());
+        return subscribePanelPosition(() => setValue(readPanelPosition()));
+      }, []);
+      return value;
+    }
+
+    // A layout glyph, not an arrow: the frame is the panel, the divider is the
+    // conversation edge, and the solid band is the side the card will occupy.
+    function DockMark({ target }) {
+      const toRight = target !== 'left';
+      const divider = toRight ? 15.4 : 8.6;
+      const bandX = toRight ? 17.1 : 3.9;
+      return h('svg', {
+        width: 13,
+        height: 13,
+        viewBox: '0 0 24 24',
+        fill: 'none',
+        'aria-hidden': true,
+        style: { display: 'block' },
+      },
+      h('rect', { x: 2.6, y: 4.4, width: 18.8, height: 15.2, rx: 3, stroke: 'currentColor', strokeWidth: 1.5 }),
+      h('path', { d: 'M' + divider + ' 4.4V19.6', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' }),
+      h('rect', { x: bandX, y: 9.4, width: 2.9, height: 5.2, rx: 1.45, fill: 'currentColor' }));
+    }
+
     function CodexCard(props) {
 
       const t = useT(props);
+      const placement = props.placement === 'right' ? 'right' : 'left';
+      const active = props.active !== false;
+      const position = usePanelPosition();
+      const [narrow, setNarrow] = React.useState(false);
       const sessionId = useActiveSession();
       const updateState = useUpdate();
       const [updateOpen, setUpdateOpen] = React.useState(false);
@@ -1122,6 +1186,7 @@ window.__ModuleLoader__.load({
       const rootRef = React.useRef(null);
 
       React.useLayoutEffect(() => {
+        if (!active || placement !== 'left') return undefined;
         const root = rootRef.current;
         const mount = root?.parentElement ?? null;
         if (!mount) return undefined;
@@ -1141,9 +1206,23 @@ window.__ModuleLoader__.load({
           row?.removeAttribute('data-codex-advisor-footer');
           if (mountTagged) mount.removeAttribute('data-codex-advisor-mount');
         };
-      }, []);
+      }, [active, placement]);
+
+      React.useLayoutEffect(() => {
+        if (!active || placement !== 'right' || typeof ResizeObserver !== 'function') return undefined;
+        const root = rootRef.current;
+        if (!root) return undefined;
+        const observer = new ResizeObserver(() => {
+          // Border-box width: contentRect excludes padding and would make the
+          // 340px one-line threshold fire early.
+          setNarrow(root.getBoundingClientRect().width < 340);
+        });
+        observer.observe(root);
+        return () => observer.disconnect();
+      }, [active, placement]);
 
       const load = React.useCallback(async () => {
+        if (!active) return;
         if (!sessionId) {
           setSnapshot(null);
           setError(null);
@@ -1159,13 +1238,14 @@ window.__ModuleLoader__.load({
         } finally {
           setLoading(false);
         }
-      }, [sessionId]);
+      }, [sessionId, active]);
 
       React.useEffect(() => {
+        if (!active) return undefined;
         load();
         const timer = setInterval(load, 30000);
         return () => clearInterval(timer);
-      }, [load]);
+      }, [load, active]);
 
       const checkUpdates = React.useCallback(async () => {
         const next = await updateState.check(true);
@@ -1174,6 +1254,8 @@ window.__ModuleLoader__.load({
           setUpdateOpen(true);
         }
       }, [updateState.check]);
+
+      if (!active) return null;
 
       const threads = Array.isArray(snapshot?.threads) ? snapshot.threads : [];
       const activeThread = threads.find((thread) => thread.active) ?? threads[0] ?? null;
@@ -1245,10 +1327,103 @@ window.__ModuleLoader__.load({
         : hasAnswer
           ? 'var(--dsw-alias-label-primary)'
           : 'var(--dsw-alias-label-secondary)';
+      const wideLayout = placement === 'right' && !narrow;
+      const dockTarget = position === 'right' ? 'left' : 'right';
+      const dockButton = h('button', {
+        type: 'button',
+        'data-codex-advisor-position-toggle': '',
+        'aria-label': position === 'right' ? t('moveToLeft') : t('moveToRight'),
+        title: position === 'right' ? t('moveToLeft') : t('moveToRight'),
+        onClick: () => writePanelPosition(dockTarget),
+        style: {
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flex: '0 0 18px',
+          width: 18,
+          height: 18,
+          padding: 0,
+          border: 0,
+          borderRadius: 5,
+          background: 'transparent',
+          color: 'var(--dsw-alias-label-secondary)',
+          cursor: 'pointer',
+        },
+      }, h(DockMark, { target: dockTarget }));
+
+      if (wideLayout) {
+        const statusNode = h('div', {
+          style: { display: 'flex', alignItems: 'center', gap: 5, flex: '0 0 auto', minWidth: 0 },
+          title: statusLabel,
+          role: 'img',
+          'aria-label': statusLabel,
+        },
+        h('span', { style: { width: 7, height: 7, borderRadius: 99, background: statusColor, flex: '0 0 auto' } }),
+        modelEffort ? h('span', {
+          style: {
+            color: 'var(--dsw-alias-label-secondary)',
+            fontSize: 9.5,
+            lineHeight: 1.2,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            maxWidth: 92,
+          },
+        }, modelEffort) : null);
+        return h('div', {
+          ref: rootRef,
+          'data-codex-advisor-card': true,
+          'data-codex-advisor-placement': 'right',
+          style: {
+            width: '100%',
+            minWidth: 0,
+            boxSizing: 'border-box',
+            margin: 0,
+            padding: '8px 10px',
+            border: '1px solid var(--dsw-alias-border-l1)',
+            borderRadius: 12,
+            background: 'var(--dsw-alias-bg-layer-1)',
+            boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 22px rgba(15, 23, 42, 0.06)',
+            color: 'var(--dsw-alias-label-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            minHeight: 44,
+          },
+          role: 'group',
+          'aria-label': t('cardTitle'),
+        },
+        h(AdvisorMark),
+        h('span', { style: { fontWeight: 650, fontSize: 12.5, lineHeight: '13px', whiteSpace: 'nowrap', flex: '0 0 auto' } }, t('cardTitle')),
+        h(VersionBadge, {
+          t,
+          update: updateState.value,
+          checking: updateState.checking,
+          onCheck: checkUpdates,
+          version,
+        }),
+        statusNode,
+        h('span', {
+          title: answerText,
+          style: {
+            flex: '1 1 auto',
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            color: answerColor,
+            fontSize: 10.5,
+            lineHeight: 1.2,
+          },
+        }, answerText),
+        dockButton,
+        );
+      }
 
       return h('div', {
         ref: rootRef,
         'data-codex-advisor-card': true,
+        'data-codex-advisor-placement': placement,
         style: {
           width: '100%',
           minWidth: 0,
@@ -1308,6 +1483,7 @@ window.__ModuleLoader__.load({
             textOverflow: 'ellipsis',
           },
         }, modelEffort) : null),
+        dockButton,
       ),
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 } },
         turnCount > 0 ? h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 9.5, whiteSpace: 'nowrap' } }, `${turnCount} ${t('rounds')}`) : null,
@@ -1412,6 +1588,124 @@ window.__ModuleLoader__.load({
         onClose: () => setUpdateOpen(false),
       }) : null,
       );
+    }
+
+    // DSH has no plugin seat for the conversation's right column: 'rightbar'
+    // is the shipped sidebar's single seat. The overlay is therefore measured
+    // and pinned into the blank strip between the transcript and the turn rail.
+    const DOCK_GAP = 6;
+    const DOCK_MIN_WIDTH = 200;
+    const DOCK_MAX_WIDTH = 360;
+    const DOCK_FLOOR_WIDTH = 140;
+
+    function measureRightDock() {
+      const holder = document.querySelector('[data-slot="main.conversation"]');
+      const column = holder ? (holder.firstElementChild || holder) : null;
+      if (!column) return null;
+      const columnRect = column.getBoundingClientRect();
+      if (columnRect.width < 200 || columnRect.height < 120) return null;
+
+      const rightHandle = document.querySelector('.widthHandle[data-side="right"], [class*="widthHandle"][data-side="right"]');
+      let boundaryRight = rightHandle ? rightHandle.getBoundingClientRect().right : null;
+      if (!boundaryRight || boundaryRight <= columnRect.left) boundaryRight = columnRect.left + columnRect.width * 0.5 + 24;
+
+      let rightLimit = columnRect.right;
+      for (const button of document.querySelectorAll('button[aria-label]')) {
+        const label = button.getAttribute('aria-label') || '';
+        const isTurn = /turnNavigation|轮次|跳转/i.test(label);
+        const isRail = /右侧边栏/.test(label);
+        if (!isTurn && !isRail) continue;
+        const rect = button.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) continue;
+        if (rect.left <= boundaryRight) continue;
+        if (isRail && columnRect.right - rect.left > 72) continue;
+        if (rect.left < rightLimit) rightLimit = rect.left;
+      }
+      if (rightLimit > columnRect.right) rightLimit = columnRect.right;
+
+      const leftEdge = Math.round(boundaryRight) + DOCK_GAP;
+      const rightEdge = Math.round(rightLimit) - DOCK_GAP;
+      const span = rightEdge - leftEdge;
+      if (span < 40) return null;
+
+      let contentTop = Math.round(columnRect.top) + DOCK_GAP;
+      const tabStrip = document.querySelector('[data-conversation-tabs]');
+      if (tabStrip) {
+        const row = tabStrip.parentElement || tabStrip;
+        const rowRect = row.getBoundingClientRect();
+        if (rowRect.height > 0 && rowRect.bottom > columnRect.top && rowRect.bottom < columnRect.bottom) {
+          contentTop = Math.max(contentTop, Math.round(rowRect.bottom) + DOCK_GAP);
+        }
+      }
+
+      const floored = span < 240;
+      const width = floored ? 240 : Math.min(span, DOCK_MAX_WIDTH);
+      return {
+        top: contentTop,
+        left: floored ? Math.max(0, rightEdge - 240) : leftEdge,
+        width,
+        maxHeight: Math.max(120, Math.round(columnRect.bottom) - contentTop - DOCK_GAP),
+      };
+    }
+
+    function RightDockSeat(props) {
+      const t = useT(props);
+      const position = usePanelPosition();
+      const active = position === 'right';
+      const [box, setBox] = React.useState(null);
+      React.useEffect(() => {
+        if (!active) return undefined;
+        let frame = 0;
+        let observer = null;
+        let observed = null;
+        const measure = () => {
+          frame = 0;
+          const holder = document.querySelector('[data-slot="main.conversation"]');
+          const column = holder ? (holder.firstElementChild || holder) : null;
+          if (column && column !== observed && typeof ResizeObserver === 'function') {
+            if (observer) observer.disconnect();
+            observed = column;
+            observer = new ResizeObserver(schedule);
+            observer.observe(column);
+          }
+          setBox(measureRightDock());
+        };
+        function schedule() {
+          if (!frame) frame = window.requestAnimationFrame(measure);
+        }
+        measure();
+        const timer = window.setInterval(measure, 2000);
+        window.addEventListener('resize', schedule);
+        return () => {
+          window.removeEventListener('resize', schedule);
+          window.clearInterval(timer);
+          if (observer) observer.disconnect();
+          if (frame) window.cancelAnimationFrame(frame);
+        };
+      }, [active]);
+
+      const shown = active && box !== null;
+      return h('div', {
+        'data-codex-advisor-dock': 'right',
+        style: {
+          position: 'fixed',
+          top: box ? box.top : 0,
+          left: box ? box.left : 0,
+          width: box ? box.width : DOCK_MIN_WIDTH,
+          maxHeight: box ? box.maxHeight : 0,
+          overflowY: 'auto',
+          pointerEvents: 'auto',
+          zIndex: 5,
+          display: shown ? 'flex' : 'none',
+          flexDirection: 'column',
+          gap: 6,
+        },
+      }, h(CodexCard, { ...props, t, placement: 'right', active }));
+    }
+
+    function LeftDockSeat(props) {
+      const position = usePanelPosition();
+      return h(CodexCard, { ...props, placement: 'left', active: position === 'left' });
     }
 
     function TurnCard(props) {
@@ -1804,6 +2098,11 @@ window.__ModuleLoader__.load({
             AdvisorMark,
             CHATGPT_MARK_PATH,
             FOOTER_LAYOUT_CSS,
+            LeftDockSeat,
+            RightDockSeat,
+            measureRightDock,
+            readPanelPosition,
+            writePanelPosition,
             en,
             SessionProbe,
             getActiveSession,
@@ -1827,7 +2126,15 @@ window.__ModuleLoader__.load({
           order: 20,
           locale: NS,
           inject: () => ({ t }),
-        }, CodexCard));
+        }, LeftDockSeat));
+
+        ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+          name: 'shell.overlay',
+          id: 'codex-advisor-right-dock',
+          order: 20,
+          locale: NS,
+          inject: () => ({ t }),
+        }, RightDockSeat));
 
         ctx.slots.inject('conversation.view', () => ctx.slots.register({
           name: 'conversation.view',

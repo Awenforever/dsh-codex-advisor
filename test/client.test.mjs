@@ -49,6 +49,13 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   assert.match(source, /data-codex-advisor-card/);
   assert.match(source, /lineHeight: '13px'/);
   assert.match(source, /translateY\(-0\.15px\)/);
+  assert.match(source, /dsh-codex-advisor:position/);
+  assert.match(source, /function RightDockSeat/);
+  assert.match(source, /function LeftDockSeat/);
+  assert.match(source, /function measureRightDock/);
+  assert.match(source, /shell\.overlay/);
+  assert.match(source, /data-codex-advisor-position-toggle/);
+  assert.match(source, /wideLayout = placement === 'right' && !narrow/);
 });
 
 test('the screenshot harness keeps SVG camelCase attributes intact', () => {
