@@ -4,13 +4,13 @@ A persistent **Codex advisor** for [DeepSeek Harness](https://github.com/deepsee
 
 One DSH session can keep several labeled Codex threads. Continue a thread for the same objective, or start another for a different aspect or model class. Codex runs through the official `codex app-server` protocol under your existing ChatGPT/Codex login, so it uses your Codex quota rather than a separate API key.
 
-> **Current release: 0.8.2.** Tested with DSH Desktop `0.2.1-rc.5` on Windows 11 and Codex CLI `0.166.0-alpha.5.1`. See [Compatibility](#compatibility).
+> **Current release: 0.8.3.** Tested with DSH Desktop `0.2.1-rc.5` on Windows 11 and Codex CLI `0.166.0-alpha.5.1`. See [Compatibility](#compatibility).
 
 ## What you get
 
 - Six native tools: `codex_ask`, `codex_poll`, `codex_cancel`, `codex_status`, `codex_history`, `codex_reset`.
 - A **Codex trail** tab with thread rail, Markdown Ask/Answer blocks, activity, and a per-turn `model · effort` footnote.
-- A compact **Codex Advisor** card in the sidebar with the active thread, latest ask/answer, status light, and model/effort. The card takes its own row in the sidebar footer (the host renders `sidebar.footer.action` as one non-wrapping flex row, so the card lets that row wrap while it is mounted) and its mark is centred on the title's cap band, not the line box.
+- A compact **Codex Advisor** card in the sidebar with the active thread, latest ask/answer, status light, and model/effort. The card takes its own row in the sidebar footer (the host renders `sidebar.footer.action` as one non-wrapping flex row, so the card lets that row wrap while it is mounted) and its mark is drawn at the title's cap height so its top and bottom tangents sit on the cap line and the baseline.
 - **Split-pane aware**: the sidebar card follows the focused pane; a pane-owned view keeps its own `sessionId`, and shared split containers/toolbars do not steal focus. Focus switching only reads snapshots — it never calls `codex_ask` or writes thread/state. Tested against the latest `dsh-multiview` (`0.1.20`); older split-view versions are not supported.
 - **Theme-aware UI**: surfaces, Ask/Answer tints, status colors, errors, and the update modal use DSH semantic tokens and follow DSH light/dark automatically. There is no separate theme toggle.
 - State and thread bindings survive DSH restarts.
@@ -32,7 +32,7 @@ The plugin is not affiliated with OpenAI or DeepSeek. It uses your existing Code
 Install the release tarball through DSH's plugin manager:
 
 ```text
-https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.8.2.tar.gz
+https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.8.3.tar.gz
 ```
 
 After installation, add/keep the `codex-advisor` bundle and restart DSH if the Host requests it. A client-bundle change may require a full DSH quit/reopen or a page reload; the Codex tab and sidebar card appear after the client bundle is reloaded.
@@ -40,7 +40,7 @@ After installation, add/keep the `codex-advisor` bundle and restart DSH if the H
 ### Web / CLI profile
 
 ```powershell
-dsh plugin --profile <profile> add https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.8.2.tar.gz
+dsh plugin --profile <profile> add https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.8.3.tar.gz
 ```
 
 Then restart that DSH profile. For the app-managed `desktop` profile, use the app's plugin manager instead of editing the profile by hand.

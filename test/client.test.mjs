@@ -31,9 +31,11 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   assert.match(source, /flex: '0 0 13px'/);
   assert.match(source, /width: 13,/);
   assert.match(source, /height: 13,/);
-  assert.match(source, /viewBox: '0 0 24 24'/);
+  assert.match(source, /viewBox: MARK_VIEWBOX/);
   assert.match(source, /translate\(2 2\) scale\(0\.833333\)/);
-  assert.match(source, /strokeWidth: 1,/);
+  assert.match(source, /strokeWidth: 1\.25/);
+  assert.match(source, /const MARK_SIZE = 10\.3;/);
+  assert.match(source, /const MARK_VIEWBOX = '0 0 24 24';/);
   assert.doesNotMatch(source, /CHATGPT_MARK_PARTS/);
   assert.doesNotMatch(source, /vectorEffect/);
   assert.match(source, /stroke: 'currentColor'/);
@@ -45,6 +47,15 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   assert.match(source, /data-codex-advisor-card/);
   assert.match(source, /lineHeight: '13px'/);
   assert.match(source, /translateY\(0\.5px\)/);
+});
+
+test('the screenshot harness keeps SVG camelCase attributes intact', () => {
+  const harness = readFileSync(new URL('../scripts/shot-card.mjs', import.meta.url), 'utf8');
+  // Kebab-casing viewBox renders as view-box, which silently drops the
+  // viewport and clips the mark: the images then lie about the real card.
+  assert.match(harness, /SVG_CAMEL/);
+  assert.match(harness, /'viewBox'/);
+  assert.match(harness, /SVG_CAMEL\.has\(key\)/);
 });
 
 test('client registers, renders, and resolves split-pane session focus', () => {

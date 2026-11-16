@@ -40,9 +40,12 @@ function styleText(style) {
     return name + ':' + text;
   }).join(';');
 }
+// SVG attributes that are camelCase in JSX but must survive verbatim here;
+// kebab-casing them (view-box) silently drops the viewport and clips the path.
+const SVG_CAMEL = new Set(['viewBox', 'preserveAspectRatio', 'gradientUnits', 'patternUnits', 'textLength']);
 function attrs(props) {
   return Object.entries(props ?? {}).filter(([key, value]) => key !== 'children' && key !== 'key' && key !== 'ref' && key !== 'style' && value !== undefined && value !== null && value !== false && !key.startsWith('on') && typeof value !== 'object').map(([key, value]) => {
-    const name = /^(aria|data)-/.test(key) ? key : camelToKebab(key);
+    const name = /^(aria|data)-/.test(key) || SVG_CAMEL.has(key) ? key : camelToKebab(key);
     return name + '="' + escape(value === true ? '' : value) + '"';
   }).join(' ');
 }
