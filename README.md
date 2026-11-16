@@ -4,7 +4,7 @@ A persistent **Codex advisor** for [DeepSeek Harness](https://github.com/deepsee
 
 One DSH session can keep several labeled Codex threads. Continue a thread for the same objective, or start another for a different aspect or model class. Codex runs through the official `codex app-server` protocol under your existing ChatGPT/Codex login, so it uses your Codex quota rather than a separate API key.
 
-> **Current release: 0.8.0.** Tested with DSH Desktop `0.2.1-rc.5` on Windows 11 and Codex CLI `0.166.0-alpha.5.1`. See [Compatibility](#compatibility).
+> **Current release: 0.8.1.** Tested with DSH Desktop `0.2.1-rc.5` on Windows 11 and Codex CLI `0.166.0-alpha.5.1`. See [Compatibility](#compatibility).
 
 ## What you get
 
@@ -32,7 +32,7 @@ The plugin is not affiliated with OpenAI or DeepSeek. It uses your existing Code
 Install the release tarball through DSH's plugin manager:
 
 ```text
-https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.8.0.tar.gz
+https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.8.1.tar.gz
 ```
 
 After installation, add/keep the `codex-advisor` bundle and restart DSH if the Host requests it. A client-bundle change may require a full DSH quit/reopen or a page reload; the Codex tab and sidebar card appear after the client bundle is reloaded.
@@ -40,7 +40,7 @@ After installation, add/keep the `codex-advisor` bundle and restart DSH if the H
 ### Web / CLI profile
 
 ```powershell
-dsh plugin --profile <profile> add https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.8.0.tar.gz
+dsh plugin --profile <profile> add https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.8.1.tar.gz
 ```
 
 Then restart that DSH profile. For the app-managed `desktop` profile, use the app's plugin manager instead of editing the profile by hand.
@@ -75,14 +75,14 @@ Routing is deterministic: the caller chooses a `purpose`, and the plugin maps it
 |---|---|---|---|
 | `architecture` | astra | max | Hard architecture, irreversible tradeoffs |
 | `plan` | astra | high | Implementation strategy and sequencing |
-| `review` | astra | max | Independent correctness/security/design review |
-| `accept` | astra | max | Final acceptance of completed work |
-| `implement` | sol | high | Multi-file implementation with integration risk |
-| `debug` | sol | high | Root-cause investigation of a failing system |
+| `review` | sol | max | Independent correctness/security/design review |
+| `accept` | astra | high | Final acceptance of completed work |
+| `implement` | sol | medium | Multi-file implementation with integration risk |
+| `debug` | sol | medium | Root-cause investigation of a failing system |
 | `explore` | terra | high | Open-ended reconnaissance/options; no production writes |
 | `general` | terra | medium | Default fallback when no narrower intent fits |
-| `verify` | luna | medium | Bounded tests, CI, reproduction |
-| `routine` | luna | low | Mechanical, high-certainty, low-blast-radius work |
+| `verify` | luna | max | Bounded tests, CI, reproduction; Luna is floored at max |
+| `routine` | luna | max | Mechanical, high-certainty, low-blast-radius work; Luna is floored at max |
 
 The policy stores a **family**, not a frozen version. On new-thread creation the plugin reads `model/list` from the Codex app-server and selects the newest visible version in that family; if a future `gpt-6.1-luna` appears, `routine`/`verify` use it automatically. Static names are fallbacks when the catalog is unavailable. An exact model id pins that exact version; a family alias (for example `luna`) resolves to its newest visible version.
 

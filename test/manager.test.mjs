@@ -234,13 +234,29 @@ test('purpose routing uses terra for general/explore and follows the newest mode
   assert.equal(explore.model, 'gpt-6.2-terra');
   assert.equal(explore.effort, 'high');
 
-  const routine = await manager.ask({ message: 'read the status', purpose: 'routine', new_thread: true }, execFor('routine'));
+  const routine = await manager.ask({ message: 'read the status', purpose: 'routine', effort: 'low', new_thread: true }, execFor('routine'));
   assert.equal(routine.model, 'gpt-6.1-luna');
-  assert.equal(routine.effort, 'low');
+  assert.equal(routine.effort, 'max');
 
-  const verify = await manager.ask({ message: 'run the bounded check', purpose: 'verify', new_thread: true }, execFor('verify'));
+  const verify = await manager.ask({ message: 'run the bounded check', purpose: 'verify', effort: 'low', new_thread: true }, execFor('verify'));
   assert.equal(verify.model, 'gpt-6.1-luna');
-  assert.equal(verify.effort, 'medium');
+  assert.equal(verify.effort, 'max');
+
+  const review = await manager.ask({ message: 'review the diff', purpose: 'review', new_thread: true }, execFor('review'));
+  assert.equal(review.model, 'gpt-6.1-sol');
+  assert.equal(review.effort, 'max');
+
+  const accept = await manager.ask({ message: 'accept the result', purpose: 'accept', new_thread: true }, execFor('accept'));
+  assert.equal(accept.model, 'gpt-6-astra');
+  assert.equal(accept.effort, 'high');
+
+  const implement = await manager.ask({ message: 'implement the change', purpose: 'implement', new_thread: true }, execFor('implement'));
+  assert.equal(implement.model, 'gpt-6.1-sol');
+  assert.equal(implement.effort, 'medium');
+
+  const debug = await manager.ask({ message: 'debug the failure', purpose: 'debug', new_thread: true }, execFor('debug'));
+  assert.equal(debug.model, 'gpt-6.1-sol');
+  assert.equal(debug.effort, 'medium');
 
   const alias = await manager.ask({ message: 'pin the family', model: 'luna', new_thread: true }, execFor('alias'));
   assert.equal(alias.model, 'gpt-6.1-luna');
