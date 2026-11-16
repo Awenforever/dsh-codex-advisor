@@ -33,8 +33,10 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   assert.match(source, /height: 13,/);
   assert.match(source, /viewBox: MARK_VIEWBOX/);
   assert.match(source, /translate\(2 2\) scale\(0\.833333\)/);
-  assert.match(source, /strokeWidth: 1\.25/);
-  assert.match(source, /const MARK_SIZE = 10\.3;/);
+  assert.match(source, /strokeWidth: MARK_STROKE/);
+  assert.match(source, /const MARK_SIZE = 12;/);
+  assert.match(source, /const MARK_STROKE = 0\.9;/);
+  assert.match(source, /fill: 'currentColor'/);
   assert.match(source, /const MARK_VIEWBOX = '0 0 24 24';/);
   assert.doesNotMatch(source, /CHATGPT_MARK_PARTS/);
   assert.doesNotMatch(source, /vectorEffect/);
@@ -46,7 +48,7 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   assert.match(source, /data-codex-advisor-mount/);
   assert.match(source, /data-codex-advisor-card/);
   assert.match(source, /lineHeight: '13px'/);
-  assert.match(source, /translateY\(0\.5px\)/);
+  assert.match(source, /translateY\(-0\.15px\)/);
 });
 
 test('the screenshot harness keeps SVG camelCase attributes intact', () => {
