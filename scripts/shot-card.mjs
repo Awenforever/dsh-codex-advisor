@@ -60,6 +60,17 @@ function render(node) {
 const card = components.get('codex-advisor-card');
 if (!card) throw new Error('card component missing');
 const cardHtml = render(card({ t: tr }));
+const footerCss = hooks.FOOTER_LAYOUT_CSS;
+if (typeof footerCss !== 'string' || !footerCss.includes('data-codex-advisor-footer') || !footerCss.includes('data-codex-advisor-mount')) {
+  throw new Error('footer layout CSS missing');
+}
+const otherCard = '<div class="mock-other"><span class="mock-dot"></span><span>Other plugin</span></div>';
+// Two host realities: the slot may render our card directly in the footer row,
+// or wrap each entry in its own element first.
+const layouts = [
+  ['Host row, card mounted directly', 'data-codex-advisor-footer', cardHtml],
+  ['Host row, card inside slot wrapper', 'data-codex-advisor-footer', '<div data-codex-advisor-mount>' + cardHtml + '</div>'],
+];
 const LIGHT = {
   '--dsw-alias-bg-base':'#ffffff','--dsw-alias-bg-layer-1':'#ffffff','--dsw-alias-bg-layer-2':'#f4f5f7',
   '--dsw-alias-border-l1':'#e4e6eb','--dsw-alias-label-primary':'#111318','--dsw-alias-label-secondary':'#6b7280',
@@ -80,10 +91,20 @@ const html = '<!doctype html><html><head><meta charset="utf-8"><style>' +
   '.theme.dark{background:#111318;color:#f2f3f7;' + vars(DARK) + '}' +
   '.theme > div[role="group"]{width:256px !important;box-sizing:border-box;}' +
   '.theme-label{font-size:11px;font-weight:600;margin-bottom:7px;opacity:.7;}' +
+  '.footer{display:flex;gap:6px;width:280px;align-items:flex-start;}' +
+  '.mock-other{width:170px;flex:0 0 170px;box-sizing:border-box;padding:9px 10px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);font-size:12px;display:flex;align-items:center;gap:6px;}' +
+  '.mock-dot{width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-success-primary);}' +
+  '.layout-note{font-size:11px;font-weight:600;margin:0 0 7px;opacity:.65;}' +
+  '.footer.wrap{flex-wrap:wrap;}' +
+  footerCss +
   '</style></head><body><div class="themes">' +
   '<div class="theme light"><div class="theme-label">DSH light</div>' + cardHtml + '</div>' +
   '<div class="theme dark"><div class="theme-label">DSH dark</div>' + cardHtml + '</div>' +
-  '</div></body></html>';
+  '</div>' +
+  '<div class="theme light" style="width:330px;margin-top:18px">' +
+  '<div class="layout-note">Without the fix: cards share one row</div><div class="footer">' + otherCard + cardHtml + '</div></div>' +
+  layouts.map(([label, attr, body]) => '<div class="theme light" style="width:330px"><div class="layout-note">' + label + '</div><div class="footer" ' + attr + '>' + otherCard + body + '</div></div>').join('') +
+  '</body></html>';
 const out = resolve(process.argv[2] ?? 'screenshots/codex-advisor-card-light-dark.png');
 mkdirSync(dirname(out), { recursive: true });
 const page = join(process.cwd(), 'screenshots', '.codex-advisor-card-preview.html');

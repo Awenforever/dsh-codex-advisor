@@ -39,6 +39,12 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   assert.match(source, /stroke: 'currentColor'/);
   assert.match(source, /fill: 'none'/);
   assert.match(source, /h\(AdvisorMark\)/);
+  assert.match(source, /FOOTER_LAYOUT_CSS/);
+  assert.match(source, /data-codex-advisor-footer/);
+  assert.match(source, /data-codex-advisor-mount/);
+  assert.match(source, /data-codex-advisor-card/);
+  assert.match(source, /lineHeight: '13px'/);
+  assert.match(source, /translateY\(0\.5px\)/);
 });
 
 test('client registers, renders, and resolves split-pane session focus', () => {
