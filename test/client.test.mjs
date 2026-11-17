@@ -62,9 +62,17 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   assert.match(source, /const ARRIVAL_KEY = '__dshRightDockArrival'/);
   assert.match(source, /function claimDockArrival/);
   assert.match(source, /function neighbourDockVisible/);
-  assert.match(source, /'data-codex-advisor-dock-order': arrivalRef\.current \|\| undefined/);
-  assert.match(source, /data-ustc-quota-dock-order/);
-  assert.match(source, /yieldToNeighbour = neighbourArrival < arrival/);
+  // Arrival is a timestamp, published once on the activation edge and compared
+  // against the counterpart's own timestamp; the shared counter stays only for
+  // the older counterpart that still reads it.
+  assert.match(source, /const ARRIVAL_ATTR = 'data-codex-advisor-dock-arrived-at'/);
+  assert.match(source, /const PEER_ARRIVAL_ATTR = 'data-ustc-quota-dock-arrived-at'/);
+  assert.match(source, /const ARRIVAL_TIE_MS = 4/);
+  assert.match(source, /\[ARRIVAL_ATTR\]: arrivalAtRef\.current \|\| undefined/);
+  assert.match(source, /arrivalAtRef\.current = Date\.now\(\)/);
+  assert.match(source, /if \(active && !prevActiveRef\.current\)/);
+  assert.match(source, /yieldToNeighbour = peerAt < arrivalAt/);
+  assert.match(source, /yieldToNeighbour = peerOrder < arrival/);
   assert.match(source, /if \(wasHereFirst && rect\.top > contentTop\)/);
   assert.match(source, /const startsAbove = rect\.top < contentTop - 1/);
   assert.match(source, /NEIGHBOUR_DOCK_ID < DOCK_ID/);

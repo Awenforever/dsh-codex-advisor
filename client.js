@@ -1557,20 +1557,29 @@ window.__ModuleLoader__.load({
     const DOCK_MIN_WIDTH = 200;
     const DOCK_MAX_WIDTH = 480;
     const DOCK_FLOOR_WIDTH = 240;
-    // Cross-plugin stacking: first come, first served.
+    // Cross-plugin stacking: first come, first served, decided by an arrival
+    // **timestamp** rather than by id or height.
     //
-    // Each plugin's right dock claims an arrival number the moment it becomes
-    // active on the right and publishes it as a data attribute, so a neighbour
-    // can compare. The earlier arrival keeps the natural slot; the later one
-    // stacks below it. Deliberately not id-ordered and not height-ordered:
-    // whoever got there first wins, which is the least surprising rule.
+    // Each dock stamps itself once, on the transition into the right side, and
+    // publishes the value as a data attribute; a neighbour compares the two
+    // numbers and yields to the smaller one. A timestamp is self-describing, so
+    // it survives plugin module reloads and needs no shared global, and
+    // `Date.now()` is the same within one renderer process.
     //
-    // Counterpart: dsh-ustc-quota v1.1.58, which publishes
-    // `data-ustc-quota-dock-order` and reads ours.
+    // Publishing must happen only on that edge: re-stamping on every
+    // measurement would keep pretending we just arrived and pin us to the
+    // bottom forever.
+    //
+    // The older shared counter is still published as `data-…-dock-order` so
+    // dsh-ustc-quota v1.1.58 (which reads that) keeps working; v1.1.59 reads
+    // the timestamp. Timestamp wins when both sides have one.
     const ARRIVAL_KEY = '__dshRightDockArrival';
     const DOCK_ID = 'codex-advisor';
     const NEIGHBOUR_DOCK_ID = 'ustc-quota';
+    const ARRIVAL_ATTR = 'data-codex-advisor-dock-arrived-at';
+    const PEER_ARRIVAL_ATTR = 'data-ustc-quota-dock-arrived-at';
     const DOCK_ORDER_ATTR = 'data-ustc-quota-dock-order';
+    const ARRIVAL_TIE_MS = 4;
 
     function claimDockArrival() {
       try {
@@ -1596,7 +1605,7 @@ window.__ModuleLoader__.load({
       return false;
     }
 
-    function measureRightDock(arrival = 0, wasHereFirst = false) {
+    function measureRightDock(arrival = 0, arrivalAt = 0, wasHereFirst = false) {
       const holder = document.querySelector('[data-slot="main.conversation"]');
       const column = holder ? (holder.firstElementChild || holder) : null;
       if (!column) return null;
@@ -1646,10 +1655,15 @@ window.__ModuleLoader__.load({
           // Arrival comparison is the rule. Two docks that each "yield to
           // whatever is above me" chase each other downwards forever; yielding
           // only to the earlier arrival makes exactly one side move, once.
-          const neighbourArrival = Number(other.getAttribute(DOCK_ORDER_ATTR)) || 0;
+          const peerAt = Number(other.getAttribute(PEER_ARRIVAL_ATTR)) || 0;
+          const peerOrder = Number(other.getAttribute(DOCK_ORDER_ATTR)) || 0;
           let yieldToNeighbour;
-          if (neighbourArrival > 0 && arrival > 0) {
-            yieldToNeighbour = neighbourArrival < arrival;
+          if (peerAt > 0 && arrivalAt > 0 && Math.abs(peerAt - arrivalAt) > ARRIVAL_TIE_MS) {
+            // Timestamps on both sides: the smaller one arrived first.
+            yieldToNeighbour = peerAt < arrivalAt;
+          } else if (peerOrder > 0 && arrival > 0) {
+            // Legacy counterpart (v1.1.58) that publishes the shared counter.
+            yieldToNeighbour = peerOrder < arrival;
           } else if (wasHereFirst && rect.top > contentTop) {
             // We were already here when the neighbour appeared and it sits
             // below us: never chase it. If it shares our slot (a neighbour that
@@ -1690,19 +1704,25 @@ window.__ModuleLoader__.load({
       const active = position === 'right';
       const [box, setBox] = React.useState(null);
       const arrivalRef = React.useRef(0);
+      const arrivalAtRef = React.useRef(0);
+      const prevActiveRef = React.useRef(false);
       const firstRef = React.useRef(false);
 
-      // Claim the arrival slot exactly once per activation, so a later re-dock
-      // queues behind whoever is already there.
+      // Stamp the arrival only on the false -> true edge, so a later re-dock
+      // queues behind whoever is already there. Re-stamping per measurement
+      // would make this dock claim to be the newest arrival forever.
       React.useEffect(() => {
-        if (active) {
+        if (active && !prevActiveRef.current) {
           firstRef.current = !neighbourDockVisible();
+          arrivalAtRef.current = Date.now();
           arrivalRef.current = claimDockArrival();
-          setBox(measureRightDock(arrivalRef.current, firstRef.current));
-        } else {
+          setBox(measureRightDock(arrivalRef.current, arrivalAtRef.current, firstRef.current));
+        } else if (!active) {
           arrivalRef.current = 0;
+          arrivalAtRef.current = 0;
           firstRef.current = false;
         }
+        prevActiveRef.current = active;
       }, [active]);
 
       React.useEffect(() => {
@@ -1720,7 +1740,7 @@ window.__ModuleLoader__.load({
             observer = new ResizeObserver(schedule);
             observer.observe(column);
           }
-          setBox(measureRightDock(arrivalRef.current, firstRef.current));
+          setBox(measureRightDock(arrivalRef.current, arrivalAtRef.current, firstRef.current));
         };
         function schedule() {
           if (!frame) frame = window.requestAnimationFrame(measure);
@@ -1740,6 +1760,7 @@ window.__ModuleLoader__.load({
       return h('div', {
         'data-codex-advisor-dock': 'right',
         'data-codex-advisor-dock-order': arrivalRef.current || undefined,
+        [ARRIVAL_ATTR]: arrivalAtRef.current || undefined,
         style: {
           position: 'fixed',
           top: box ? box.top : 0,
