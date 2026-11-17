@@ -118,6 +118,10 @@ const JSON_HEADERS = Object.freeze({
   'cache-control': 'no-store',
 });
 
+// Optional panel-dock bundle. Pinned to a commit because the project has no
+// release tag yet; bump it when a tag lands.
+const PANEL_DOCK_SPEC = 'https://github.com/Awenforever/dsh-panel-dock/archive/a8c789c59af04e7bb327f36d65bd519eb3f0505b.tar.gz';
+
 function queueWebRoutes(ctx, manager, updateService, disposers, log, attempt = 0) {
   const webServer = safeGet(ctx, 'webServer');
   if (webServer && typeof webServer.register === 'function') {
@@ -202,6 +206,43 @@ function registerWebRoutes(ctx, manager, updateService, disposers, log) {
       writeJson(response, result.ok ? 200 : 409, result);
     } catch (err) {
       writeJson(response, 500, { ok: false, code: 'UPDATE_APPLY_FAILED', message: err?.message ?? String(err) });
+    }
+  });
+  register('/plugins/dsh-codex-advisor/install-panel-dock', async (request, response) => {
+    if (!acceptApplyRequest(ctx, request, response)) return;
+    try {
+      const pluginManager = safeGet(ctx, 'pluginManager');
+      if (!pluginManager || typeof pluginManager.installBundle !== 'function') {
+        writeJson(response, 409, {
+          ok: false,
+          code: 'PANEL_DOCK_INSTALL_UNAVAILABLE',
+          message: 'No plugin manager is available in this profile; install dsh-panel-dock manually.',
+          spec: PANEL_DOCK_SPEC,
+        });
+        return;
+      }
+      const install = await pluginManager.installBundle(PANEL_DOCK_SPEC, { enabled: true, saveExact: true });
+      const applied = install?.ok !== false && install?.application !== 'failed';
+      log(applied ? 'info' : 'warn', {
+        event: 'panel-dock-install',
+        spec: PANEL_DOCK_SPEC,
+        application: install?.application,
+        error: install?.error?.message ?? install?.message,
+      });
+      writeJson(response, applied ? 200 : 502, {
+        ok: applied,
+        spec: PANEL_DOCK_SPEC,
+        application: install?.application ?? (applied ? 'applied' : 'failed'),
+        message: install?.error?.message ?? install?.message ?? install?.error?.code,
+        reload: applied,
+      });
+    } catch (err) {
+      writeJson(response, 500, {
+        ok: false,
+        code: 'PANEL_DOCK_INSTALL_FAILED',
+        message: err?.message ?? String(err),
+        spec: PANEL_DOCK_SPEC,
+      });
     }
   });
   register('/plugins/dsh-codex-advisor/snapshot', (request, response) => {

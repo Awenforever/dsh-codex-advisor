@@ -43,50 +43,47 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   assert.match(source, /stroke: 'currentColor'/);
   assert.match(source, /fill: 'none'/);
   assert.match(source, /h\(AdvisorMark\)/);
-  assert.match(source, /FOOTER_LAYOUT_CSS/);
-  assert.match(source, /data-codex-advisor-footer/);
-  assert.match(source, /data-codex-advisor-mount/);
   assert.match(source, /data-codex-advisor-card/);
   assert.match(source, /lineHeight: '13px'/);
   assert.match(source, /translateY\(-0\.15px\)/);
-  assert.match(source, /dsh-codex-advisor:position/);
-  assert.match(source, /function RightDockSeat/);
-  assert.match(source, /function LeftDockSeat/);
-  assert.match(source, /function measureRightDock/);
-  // Cross-plugin stacking must not be "yield to anything below me": that is the
-  // symmetric rule that makes two right docks chase each other downwards.
-  assert.match(source, /const DOCK_ID = 'codex-advisor'/);
-  // First come, first served: the earlier arrival keeps the natural slot and
-  // the later one stacks below. The id rule survives only as the fallback for
-  // a neighbour that publishes no arrival number.
-  assert.match(source, /const ARRIVAL_KEY = '__dshRightDockArrival'/);
-  assert.match(source, /function claimDockArrival/);
-  assert.match(source, /function neighbourDockVisible/);
-  // Arrival is a timestamp, published once on the activation edge and compared
-  // against the counterpart's own timestamp; the shared counter stays only for
-  // the older counterpart that still reads it.
-  assert.match(source, /const ARRIVAL_ATTR = 'data-codex-advisor-dock-arrived-at'/);
-  assert.match(source, /const PEER_ARRIVAL_ATTR = 'data-ustc-quota-dock-arrived-at'/);
-  assert.match(source, /const ARRIVAL_TIE_MS = 4/);
-  assert.match(source, /\[ARRIVAL_ATTR\]: arrivalAtRef\.current \|\| undefined/);
-  assert.match(source, /arrivalAtRef\.current = Date\.now\(\)/);
-  assert.match(source, /if \(active && !prevActiveRef\.current\)/);
-  assert.match(source, /yieldToNeighbour = peerAt < arrivalAt/);
-  assert.match(source, /yieldToNeighbour = peerOrder < arrival/);
-  assert.match(source, /if \(wasHereFirst && rect\.top > contentTop\)/);
-  assert.match(source, /const startsAbove = rect\.top < contentTop - 1/);
-  assert.match(source, /NEIGHBOUR_DOCK_ID < DOCK_ID/);
-  assert.match(source, /shell\.overlay/);
+  // Geometry is delegated to dsh-panel-dock when it is present. The optional
+  // dependency means no hand-measured right overlay, no stacking negotiation,
+  // and no host ancestor tagging remain in the client.
+  assert.match(source, /function AdvisorPanel/);
+  assert.match(source, /function LeftFallback/);
+  assert.match(source, /dock\.define\(\{/);
+  assert.match(source, /id: PANEL_DOCK_ID/);
+  assert.match(source, /side: 'left'/);
+  assert.match(source, /height: 'auto'/);
+  assert.match(source, /dock\.toggleSide\(PANEL_DOCK_ID\)/);
+  assert.match(source, /dock\.getSide\(PANEL_DOCK_ID\)/);
+  assert.match(source, /install-panel-dock/);
+  assert.match(source, /installDockStrong/);
+  assert.match(source, /data-codex-advisor-install-modal/);
+  assert.doesNotMatch(source, /dsh-codex-advisor:position/);
+  assert.doesNotMatch(source, /function RightDockSeat/);
+  assert.doesNotMatch(source, /function measureRightDock/);
+  assert.doesNotMatch(source, /data-ustc-quota-dock/);
+  assert.doesNotMatch(source, /data-conversation-tabs/);
+  assert.doesNotMatch(source, /widthHandle/);
+  assert.doesNotMatch(source, /turnNavigation/);
+  assert.doesNotMatch(source, /shell\.overlay/);
+  assert.doesNotMatch(source, /document\.head/);
+  assert.doesNotMatch(source, /FOOTER_LAYOUT_CSS/);
+  assert.doesNotMatch(source, /data-codex-advisor-footer/);
+  assert.doesNotMatch(source, /data-codex-advisor-mount/);
+  // No panel positions itself. The only fixed elements left are dialog
+  // overlays (update modal, install modal), which are not panels.
+  assert.equal((source.match(/position: 'fixed'/g) ?? []).length, 2);
+  assert.doesNotMatch(source, /useFallbackBox|fallbackBox/);
   assert.match(source, /data-codex-advisor-position-toggle/);
-  // The brand mark itself is the dock switch: no extra header control, and the
+  // The brand mark itself is the switch: no extra header control, and the
   // trailing status/model cluster keeps its space.
   assert.match(source, /const showSwitch = cardHovered \|\| markHovered/);
   assert.match(source, /showSwitch \? h\(DockMark/);
   assert.doesNotMatch(source, /dockButton/);
   assert.doesNotMatch(source, /flex: '0 0 18px'/);
-  assert.match(source, /const showSwitch = cardHovered \|\| markHovered/);
   assert.doesNotMatch(source, /wideLayout/);
-  assert.doesNotMatch(source, /dockButton/);
 });
 
 test('the screenshot harness keeps SVG camelCase attributes intact', () => {

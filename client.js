@@ -259,6 +259,16 @@ window.__ModuleLoader__.load({
       rounds: '轮',
       moveToLeft: '移到左侧栏',
       moveToRight: '移到右侧面板',
+      installDockHint: '安装面板停靠后可换边',
+      installDockTitle: '位置切换需要 dsh-panel-dock',
+      installDockBody: '没有面板停靠插件时，Codex 顾问只能固定在左侧边栏，无法换到右侧面板。',
+      installDockStrong: '强烈建议安装 dsh-panel-dock：它会接管左右两边的面板布局，提供真正的右侧栏、分栏与位置记忆，其他面板插件也不再需要各自协商。',
+      installDockInstall: '一键安装',
+      installDockCancel: '取消',
+      installDockInstalling: '安装中…',
+      installDockInstalled: '已安装，正在重新加载…',
+      installDockFailed: '安装失败',
+      installDockManual: '手动安装说明',
       lastActivity: '上次活动',
       lastAnswer: '上次回答',
       justNow: '刚刚',
@@ -308,6 +318,16 @@ window.__ModuleLoader__.load({
       rounds: 'turns',
       moveToLeft: 'Move to left sidebar',
       moveToRight: 'Move to right panel',
+      installDockHint: 'Install panel dock to move this card',
+      installDockTitle: 'Moving this card needs dsh-panel-dock',
+      installDockBody: 'Without the panel dock plugin, Codex Advisor can only stay in the left sidebar.',
+      installDockStrong: 'Installing dsh-panel-dock is strongly recommended: it owns panel layout on both sides, provides the real right column, split views and remembered positions, and other panel plugins no longer need to coordinate with each other.',
+      installDockInstall: 'Install',
+      installDockCancel: 'Cancel',
+      installDockInstalling: 'Installing…',
+      installDockInstalled: 'Installed; reloading…',
+      installDockFailed: 'Install failed',
+      installDockManual: 'Manual install',
       lastActivity: 'Last activity',
       lastAnswer: 'Last answer',
       justNow: 'just now',
@@ -1064,17 +1084,6 @@ window.__ModuleLoader__.load({
     const MARK_STROKE = 0.9;
     const CHATGPT_MARK_PATH = 'M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.073zM13.2599 22.4292a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4943zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.8956zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z';
 
-    // The host renders sidebar.footer.action as one non-wrapping flex row, so a
-    // second footer card is squeezed beside the first instead of stacking.
-    // While this card is mounted we let that row wrap and give the card (and
-    // the slot wrapper the host puts around it, when present) a full row.
-    // Both attributes are removed on unmount, so other footer cards keep the
-    // host's own layout once Codex Advisor is gone.
-    const FOOTER_LAYOUT_CSS = [
-      '[data-codex-advisor-footer]{flex-wrap:wrap}',
-      '[data-codex-advisor-mount]{flex:1 0 100%;min-width:0}',
-    ].join('');
-
     function AdvisorMark() {
       return h('span', {
         'aria-hidden': true,
@@ -1114,41 +1123,42 @@ window.__ModuleLoader__.load({
         }))));
     }
 
-    const PANEL_POSITION_KEY = 'dsh-codex-advisor:position';
-    const panelPositionListeners = new Set();
+    // Panel geometry belongs to dsh-panel-dock when it is installed. It is an
+    // optional dependency: without it the card stays in the left sidebar and
+    // the brand switch offers to install it instead of pretending it can move.
+    const PANEL_DOCK_ID = 'codex-advisor';
+    const PANEL_DOCK_SPEC = 'https://github.com/Awenforever/dsh-panel-dock/archive/a8c789c59af04e7bb327f36d65bd519eb3f0505b.tar.gz';
 
-    function readPanelPosition() {
+    function panelDockApi() {
       try {
-        return window.localStorage.getItem(PANEL_POSITION_KEY) === 'right' ? 'right' : 'left';
+        return window.__dshPanelDock || null;
+      } catch {
+        return null;
+      }
+    }
+
+    function readDockSide() {
+      const dock = panelDockApi();
+      if (!dock || typeof dock.getSide !== 'function') return 'left';
+      try {
+        return dock.getSide(PANEL_DOCK_ID) === 'right' ? 'right' : 'left';
       } catch {
         return 'left';
       }
     }
 
-    function writePanelPosition(next) {
-      try {
-        window.localStorage.setItem(PANEL_POSITION_KEY, next);
-      } catch {
-        // Storage unavailable: keep the position for this page session.
-      }
-      for (const listener of panelPositionListeners) listener();
-    }
-
-    function subscribePanelPosition(listener) {
-      panelPositionListeners.add(listener);
-      return () => { panelPositionListeners.delete(listener); };
-    }
-
-    function usePanelPosition() {
-      if (typeof React.useSyncExternalStore === 'function') {
-        return React.useSyncExternalStore(subscribePanelPosition, readPanelPosition, readPanelPosition);
-      }
-      const [value, setValue] = React.useState(readPanelPosition);
+    // dsh-panel-dock has no change subscription yet, so a side changed from its
+    // own UI would otherwise leave this glyph pointing the wrong way.
+    function useDockSide() {
+      const [side, setSide] = React.useState(readDockSide);
       React.useEffect(() => {
-        setValue(readPanelPosition());
-        return subscribePanelPosition(() => setValue(readPanelPosition()));
+        const timer = setInterval(() => {
+          const next = readDockSide();
+          setSide((previous) => (previous === next ? previous : next));
+        }, 1000);
+        return () => clearInterval(timer);
       }, []);
-      return value;
+      return [side, setSide];
     }
 
     // A layout glyph, not an arrow: the frame is the panel, the divider is the
@@ -1174,12 +1184,15 @@ window.__ModuleLoader__.load({
     function CodexCard(props) {
 
       const t = useT(props);
-      const placement = props.placement === 'right' ? 'right' : 'left';
+      // docked = rendered inside dsh-panel-dock; the dock owns geometry and the
+      // card only draws its own shell. Otherwise it is the left fallback.
+      const docked = props.docked === true;
+      const [dockSide, setDockSide] = useDockSide();
+      const placement = docked ? dockSide : 'left';
       const active = props.active !== false;
-      const position = usePanelPosition();
-      const [narrow, setNarrow] = React.useState(false);
       const [cardHovered, setCardHovered] = React.useState(false);
       const [markHovered, setMarkHovered] = React.useState(false);
+      const [installOpen, setInstallOpen] = React.useState(false);
       const sessionId = useActiveSession();
       const updateState = useUpdate();
       const [updateOpen, setUpdateOpen] = React.useState(false);
@@ -1188,42 +1201,6 @@ window.__ModuleLoader__.load({
       const [error, setError] = React.useState(null);
       const [loading, setLoading] = React.useState(false);
       const rootRef = React.useRef(null);
-
-      React.useLayoutEffect(() => {
-        if (!active || placement !== 'left') return undefined;
-        const root = rootRef.current;
-        const mount = root?.parentElement ?? null;
-        if (!mount) return undefined;
-        // The host may wrap each slot entry in its own element; in that case
-        // the flex row is a further ancestor. Tag whichever node is really the
-        // flex container, and give the mount a full row only when it is a
-        // separate wrapper (never the row itself).
-        let row = null;
-        for (let node = mount; node && node !== document.body; node = node.parentElement) {
-          const display = window.getComputedStyle?.(node)?.display ?? '';
-          if (display.includes('flex') || display.includes('grid')) { row = node; break; }
-        }
-        const mountTagged = mount !== row;
-        row?.setAttribute('data-codex-advisor-footer', '');
-        if (mountTagged) mount.setAttribute('data-codex-advisor-mount', '');
-        return () => {
-          row?.removeAttribute('data-codex-advisor-footer');
-          if (mountTagged) mount.removeAttribute('data-codex-advisor-mount');
-        };
-      }, [active, placement]);
-
-      React.useLayoutEffect(() => {
-        if (!active || placement !== 'right' || typeof ResizeObserver !== 'function') return undefined;
-        const root = rootRef.current;
-        if (!root) return undefined;
-        const observer = new ResizeObserver(() => {
-          // Border-box width: contentRect excludes padding and would make the
-          // 340px one-line threshold fire early.
-          setNarrow(root.getBoundingClientRect().width < 340);
-        });
-        observer.observe(root);
-        return () => observer.disconnect();
-      }, [active, placement]);
 
       const load = React.useCallback(async () => {
         if (!active) return;
@@ -1331,18 +1308,35 @@ window.__ModuleLoader__.load({
         : hasAnswer
           ? 'var(--dsw-alias-label-primary)'
           : 'var(--dsw-alias-label-secondary)';
-      const dockTarget = position === 'right' ? 'left' : 'right';
+      const dockTarget = placement === 'right' ? 'left' : 'right';
+      const dockApi = panelDockApi();
       // The brand mark doubles as the dock switch: the ChatGPT glyph at rest,
       // the panel glyph while the card or the mark is hovered or focused. No
       // extra control is added, so the header's trailing status/model cluster
-      // keeps its space.
+      // keeps its space. Without dsh-panel-dock the same control explains how
+      // to get the feature instead of silently doing nothing.
       const showSwitch = cardHovered || markHovered;
+      const markLabel = dockApi
+        ? (placement === 'right' ? t('moveToLeft') : t('moveToRight'))
+        : t('installDockHint');
       const markButton = h('button', {
         type: 'button',
         'data-codex-advisor-position-toggle': '',
-        'aria-label': position === 'right' ? t('moveToLeft') : t('moveToRight'),
-        title: position === 'right' ? t('moveToLeft') : t('moveToRight'),
-        onClick: () => writePanelPosition(dockTarget),
+        'aria-label': markLabel,
+        title: markLabel,
+        onClick: () => {
+          const dock = panelDockApi();
+          if (!dock) {
+            setInstallOpen(true);
+            return;
+          }
+          try {
+            const next = dock.toggleSide(PANEL_DOCK_ID);
+            setDockSide(next === 'right' ? 'right' : 'left');
+          } catch {
+            setInstallOpen(true);
+          }
+        },
         onMouseEnter: () => setMarkHovered(true),
         onMouseLeave: () => setMarkHovered(false),
         onFocus: () => setMarkHovered(true),
@@ -1366,37 +1360,50 @@ window.__ModuleLoader__.load({
         onMouseLeave: () => { setCardHovered(false); setMarkHovered(false); },
       };
 
-      return h('div', {
+      // dsh-panel-dock passes its own props (including a geometry style) and
+      // owns the panel slot; spread them onto the single root and keep style
+      // last so the dock's width/flex wins. The fallback path positions itself
+      // in the left sidebar and needs no host-ancestor mutation.
+      const dockStyle = docked ? (props.style || {}) : null;
+      const dockRest = {};
+      if (docked) {
+        for (const key of Object.keys(props)) {
+          if (key !== 'style' && key !== 'docked') dockRest[key] = props[key];
+        }
+      }
+      // Fallback stays in normal flow: it is an ordinary sidebar footer card and
+      // the host's footer row decides where it sits. No fixed positioning and no
+      // host-ancestor rewriting.
+      const fallbackStyle = docked ? null : { width: '100%' };
+      const rootStyle = Object.assign({
+        minWidth: 0,
+        boxSizing: 'border-box',
+        padding: '10px 9px 8px',
+        border: '1px solid var(--dsw-alias-border-l1)',
+        borderRadius: 12,
+        // Docked right, the card keeps the sidebar's own fill so it reads as
+        // the same surface moved sideways, not a white floating window.
+        background: placement === 'right'
+          ? 'var(--dsw-specific-sidebar-fill, var(--dsw-alias-bg-module-platform))'
+          : 'var(--dsw-alias-bg-layer-1)',
+        boxShadow: '0 3px 12px rgba(0, 0, 0, 0.16)',
+        color: 'var(--dsw-alias-label-primary)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 5,
+        fontVariantNumeric: 'tabular-nums',
+      }, fallbackStyle || {}, dockStyle || {});
+
+      return h('div', Object.assign({}, dockRest, {
         ref: rootRef,
         'data-codex-advisor-card': true,
         'data-codex-advisor-placement': placement,
-        style: {
-          width: '100%',
-          minWidth: 0,
-          boxSizing: 'border-box',
-          flex: '0 0 100%',
-          order: 1,
-          gridColumn: '1 / -1',
-          margin: '0 0 6px',
-          padding: '10px 9px 8px',
-          border: '1px solid var(--dsw-alias-border-l1)',
-          borderRadius: 12,
-          // Docked right, the card keeps the sidebar's own fill so it reads as
-          // the same surface moved sideways, not a white floating window.
-          background: placement === 'right'
-            ? 'var(--dsw-specific-sidebar-fill, var(--dsw-alias-bg-module-platform))'
-            : 'var(--dsw-alias-bg-layer-1)',
-          boxShadow: '0 3px 12px rgba(0, 0, 0, 0.16)',
-          color: 'var(--dsw-alias-label-primary)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 5,
-          fontVariantNumeric: 'tabular-nums',
-        },
+        'data-codex-advisor-docked': docked ? 'panel-dock' : 'fallback',
+        style: rootStyle,
         role: 'group',
         'aria-label': t('cardTitle'),
         ...cardHoverProps,
-      },
+      }),
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 } },
         markButton,
         // The line box matches the 13px mark box so the title's cap-height
@@ -1547,239 +1554,138 @@ window.__ModuleLoader__.load({
         update: modalUpdate,
         onClose: () => setUpdateOpen(false),
       }) : null,
+      installOpen ? h(InstallPanelDockModal, {
+        t,
+        onClose: () => setInstallOpen(false),
+      }) : null,
       );
     }
 
-    // DSH has no plugin seat for the conversation's right column: 'rightbar'
-    // is the shipped sidebar's single seat. The overlay is therefore measured
-    // and pinned into the blank strip between the transcript and the turn rail.
-    const DOCK_GAP = 6;
-    const DOCK_MIN_WIDTH = 200;
-    const DOCK_MAX_WIDTH = 480;
-    const DOCK_FLOOR_WIDTH = 240;
-    // Cross-plugin stacking: first come, first served, decided by an arrival
-    // **timestamp** rather than by id or height.
-    //
-    // Each dock stamps itself once, on the transition into the right side, and
-    // publishes the value as a data attribute; a neighbour compares the two
-    // numbers and yields to the smaller one. A timestamp is self-describing, so
-    // it survives plugin module reloads and needs no shared global, and
-    // `Date.now()` is the same within one renderer process.
-    //
-    // Publishing must happen only on that edge: re-stamping on every
-    // measurement would keep pretending we just arrived and pin us to the
-    // bottom forever.
-    //
-    // The older shared counter is still published as `data-…-dock-order` so
-    // dsh-ustc-quota v1.1.58 (which reads that) keeps working; v1.1.59 reads
-    // the timestamp. Timestamp wins when both sides have one.
-    const ARRIVAL_KEY = '__dshRightDockArrival';
-    const DOCK_ID = 'codex-advisor';
-    const NEIGHBOUR_DOCK_ID = 'ustc-quota';
-    const ARRIVAL_ATTR = 'data-codex-advisor-dock-arrived-at';
-    const PEER_ARRIVAL_ATTR = 'data-ustc-quota-dock-arrived-at';
-    const DOCK_ORDER_ATTR = 'data-ustc-quota-dock-order';
-    const ARRIVAL_TIE_MS = 4;
-
-    function claimDockArrival() {
+    async function installPanelDock() {
+      const url = new URL('plugins/dsh-codex-advisor/install-panel-dock', document.baseURI);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 120000);
       try {
-        const scope = typeof window === 'undefined' ? null : window;
-        if (!scope) return 0;
-        const next = (Number(scope[ARRIVAL_KEY]) || 0) + 1;
-        scope[ARRIVAL_KEY] = next;
-        return next;
-      } catch {
-        return 0;
+        const response = await fetch(url.pathname, {
+          method: 'POST',
+          cache: 'no-store',
+          headers: { 'content-type': 'application/json', accept: 'application/json' },
+          body: JSON.stringify({ spec: PANEL_DOCK_SPEC }),
+          signal: controller.signal,
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || body.ok === false) {
+          throw new Error(body.message || body.error || `HTTP ${response.status}`);
+        }
+        return body;
+      } finally {
+        clearTimeout(timer);
       }
     }
 
-    function neighbourDockVisible() {
-      try {
-        for (const node of document.querySelectorAll('[data-ustc-quota-dock="right"]')) {
-          const rect = node.getBoundingClientRect();
-          if (rect.width > 0 && rect.height > 0) return true;
+    function InstallPanelDockModal({ t, onClose }) {
+      const [busy, setBusy] = React.useState(false);
+      const [error, setError] = React.useState(null);
+      const [done, setDone] = React.useState(false);
+      React.useEffect(() => {
+        const onKey = (event) => {
+          if (event.key === 'Escape' && !busy) onClose();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+      }, [busy, onClose]);
+      const install = async () => {
+        if (busy || done) return;
+        setBusy(true);
+        setError(null);
+        try {
+          await installPanelDock();
+          setDone(true);
+          setTimeout(() => { try { window.location.reload(); } catch { /* reload may be blocked */ } }, 1200);
+        } catch (err) {
+          setError(err?.message ?? String(err));
+        } finally {
+          setBusy(false);
         }
-      } catch {
-        return false;
-      }
-      return false;
-    }
-
-    function measureRightDock(arrival = 0, arrivalAt = 0, wasHereFirst = false) {
-      const holder = document.querySelector('[data-slot="main.conversation"]');
-      const column = holder ? (holder.firstElementChild || holder) : null;
-      if (!column) return null;
-      const columnRect = column.getBoundingClientRect();
-      if (columnRect.width < 200 || columnRect.height < 120) return null;
-
-      const rightHandle = document.querySelector('.widthHandle[data-side="right"], [class*="widthHandle"][data-side="right"]');
-      let boundaryRight = rightHandle ? rightHandle.getBoundingClientRect().right : null;
-      if (!boundaryRight || boundaryRight <= columnRect.left) boundaryRight = columnRect.left + columnRect.width * 0.5 + 24;
-
-      let rightLimit = columnRect.right;
-      for (const button of document.querySelectorAll('button[aria-label]')) {
-        const label = button.getAttribute('aria-label') || '';
-        const isTurn = /turnNavigation|轮次|跳转/i.test(label);
-        const isRail = /右侧边栏/.test(label);
-        if (!isTurn && !isRail) continue;
-        const rect = button.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) continue;
-        if (rect.left <= boundaryRight) continue;
-        if (isRail && columnRect.right - rect.left > 72) continue;
-        if (rect.left < rightLimit) rightLimit = rect.left;
-      }
-      if (rightLimit > columnRect.right) rightLimit = columnRect.right;
-
-      const leftEdge = Math.round(boundaryRight) + DOCK_GAP;
-      const rightEdge = Math.round(rightLimit) - DOCK_GAP;
-      const span = rightEdge - leftEdge;
-      if (span < 40) return null;
-
-      let contentTop = Math.round(columnRect.top) + DOCK_GAP;
-      const tabStrip = document.querySelector('[data-conversation-tabs]');
-      if (tabStrip) {
-        const row = tabStrip.parentElement || tabStrip;
-        const rowRect = row.getBoundingClientRect();
-        if (rowRect.height > 0 && rowRect.bottom > columnRect.top && rowRect.bottom < columnRect.bottom) {
-          contentTop = Math.max(contentTop, Math.round(rowRect.bottom) + DOCK_GAP);
-        }
-      }
-
-      let top = contentTop;
-      try {
-        for (const other of document.querySelectorAll('[data-ustc-quota-dock="right"]')) {
-          const rect = other.getBoundingClientRect();
-          if (rect.width <= 0 || rect.height <= 0) continue;
-          if (rect.right <= leftEdge || rect.left >= rightEdge) continue;
-
-          // Arrival comparison is the rule. Two docks that each "yield to
-          // whatever is above me" chase each other downwards forever; yielding
-          // only to the earlier arrival makes exactly one side move, once.
-          const peerAt = Number(other.getAttribute(PEER_ARRIVAL_ATTR)) || 0;
-          const peerOrder = Number(other.getAttribute(DOCK_ORDER_ATTR)) || 0;
-          let yieldToNeighbour;
-          if (peerAt > 0 && arrivalAt > 0 && Math.abs(peerAt - arrivalAt) > ARRIVAL_TIE_MS) {
-            // Timestamps on both sides: the smaller one arrived first.
-            yieldToNeighbour = peerAt < arrivalAt;
-          } else if (peerOrder > 0 && arrival > 0) {
-            // Legacy counterpart (v1.1.58) that publishes the shared counter.
-            yieldToNeighbour = peerOrder < arrival;
-          } else if (wasHereFirst && rect.top > contentTop) {
-            // We were already here when the neighbour appeared and it sits
-            // below us: never chase it. If it shares our slot (a neighbour that
-            // has not adopted this contract yet) fall through to the position
-            // rule, because two overlapping cards are worse than a wrong order.
-            yieldToNeighbour = false;
-          } else {
-            // Fallback for neighbours without an arrival number: yield when it
-            // already occupies this slot, and on an exact tie let the earlier
-            // id win so the very first paint cannot deadlock.
-            const startsAbove = rect.top < contentTop - 1;
-            const tiedAndEarlier = Math.abs(rect.top - contentTop) <= 1 && NEIGHBOUR_DOCK_ID < DOCK_ID;
-            yieldToNeighbour = startsAbove || tiedAndEarlier;
-          }
-          if (!yieldToNeighbour) continue;
-          if (rect.top < columnRect.bottom) {
-            const stacked = Math.round(rect.bottom) + DOCK_GAP;
-            if (stacked > top) top = stacked;
-          }
-        }
-      } catch {
-        // Stacking is best-effort; a broken neighbour must not break this card.
-      }
-
-      const floored = span < DOCK_MIN_WIDTH;
-      const width = floored ? DOCK_FLOOR_WIDTH : Math.min(span, DOCK_MAX_WIDTH);
-      return {
-        top,
-        left: floored ? Math.max(0, rightEdge - DOCK_FLOOR_WIDTH) : leftEdge,
-        width,
-        maxHeight: Math.max(120, Math.round(columnRect.bottom) - top - DOCK_GAP),
       };
-    }
-
-    function RightDockSeat(props) {
-      const t = useT(props);
-      const position = usePanelPosition();
-      const active = position === 'right';
-      const [box, setBox] = React.useState(null);
-      const arrivalRef = React.useRef(0);
-      const arrivalAtRef = React.useRef(0);
-      const prevActiveRef = React.useRef(false);
-      const firstRef = React.useRef(false);
-
-      // Stamp the arrival only on the false -> true edge, so a later re-dock
-      // queues behind whoever is already there. Re-stamping per measurement
-      // would make this dock claim to be the newest arrival forever.
-      React.useEffect(() => {
-        if (active && !prevActiveRef.current) {
-          firstRef.current = !neighbourDockVisible();
-          arrivalAtRef.current = Date.now();
-          arrivalRef.current = claimDockArrival();
-          setBox(measureRightDock(arrivalRef.current, arrivalAtRef.current, firstRef.current));
-        } else if (!active) {
-          arrivalRef.current = 0;
-          arrivalAtRef.current = 0;
-          firstRef.current = false;
-        }
-        prevActiveRef.current = active;
-      }, [active]);
-
-      React.useEffect(() => {
-        if (!active) return undefined;
-        let frame = 0;
-        let observer = null;
-        let observed = null;
-        const measure = () => {
-          frame = 0;
-          const holder = document.querySelector('[data-slot="main.conversation"]');
-          const column = holder ? (holder.firstElementChild || holder) : null;
-          if (column && column !== observed && typeof ResizeObserver === 'function') {
-            if (observer) observer.disconnect();
-            observed = column;
-            observer = new ResizeObserver(schedule);
-            observer.observe(column);
-          }
-          setBox(measureRightDock(arrivalRef.current, arrivalAtRef.current, firstRef.current));
-        };
-        function schedule() {
-          if (!frame) frame = window.requestAnimationFrame(measure);
-        }
-        measure();
-        const timer = window.setInterval(measure, 2000);
-        window.addEventListener('resize', schedule);
-        return () => {
-          window.removeEventListener('resize', schedule);
-          window.clearInterval(timer);
-          if (observer) observer.disconnect();
-          if (frame) window.cancelAnimationFrame(frame);
-        };
-      }, [active]);
-
-      const shown = active && box !== null;
       return h('div', {
-        'data-codex-advisor-dock': 'right',
-        'data-codex-advisor-dock-order': arrivalRef.current || undefined,
-        [ARRIVAL_ATTR]: arrivalAtRef.current || undefined,
+        'data-codex-advisor-install-modal': '',
+        role: 'dialog',
+        'aria-modal': 'true',
+        'aria-label': t('installDockTitle'),
+        onClick: (event) => { if (event.target === event.currentTarget && !busy) onClose(); },
         style: {
           position: 'fixed',
-          top: box ? box.top : 0,
-          left: box ? box.left : 0,
-          width: box ? box.width : DOCK_MIN_WIDTH,
-          maxHeight: box ? box.maxHeight : 0,
-          overflow: 'visible',
-          pointerEvents: 'auto',
-          zIndex: 5,
-          display: shown ? 'flex' : 'none',
-          flexDirection: 'column',
-          gap: 6,
+          inset: 0,
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 20,
+          background: 'rgba(0, 0, 0, 0.34)',
         },
-      }, h(CodexCard, { ...props, t, placement: 'right', active }));
+      },
+      h('div', {
+        style: {
+          width: '100%',
+          maxWidth: 430,
+          padding: '16px 16px 13px',
+          border: '1px solid var(--dsw-alias-border-l1)',
+          borderRadius: 12,
+          background: 'var(--dsw-alias-bg-layer-1)',
+          color: 'var(--dsw-alias-label-primary)',
+          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.28)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+        },
+      },
+      h('div', { style: { fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em' } }, t('installDockTitle')),
+      h('div', { style: { fontSize: 11.5, lineHeight: 1.5, color: 'var(--dsw-alias-label-secondary)' } }, t('installDockBody')),
+      h('div', {
+        style: {
+          fontSize: 11.5,
+          lineHeight: 1.5,
+          padding: '7px 9px',
+          borderRadius: 8,
+          background: 'var(--dsw-alias-bg-module-platform)',
+          color: 'var(--dsw-alias-label-primary)',
+        },
+      }, t('installDockStrong')),
+      done ? h('div', { style: { fontSize: 11.5, color: 'var(--dsw-alias-state-success-primary)' } }, t('installDockInstalled')) : null,
+      error ? h('div', { style: { fontSize: 11, color: 'var(--dsw-alias-state-error-primary)', wordBreak: 'break-word' } }, `${t('installDockFailed')}: ${error}`) : null,
+      h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginTop: 2 } },
+        h('a', {
+          href: 'https://github.com/Awenforever/dsh-panel-dock',
+          target: '_blank',
+          rel: 'noreferrer',
+          style: { marginRight: 'auto', fontSize: 10.5, color: 'var(--dsw-alias-link)' },
+        }, t('installDockManual')),
+        h('button', {
+          type: 'button',
+          disabled: busy || done,
+          onClick: onClose,
+          style: { fontSize: 11.5, padding: '5px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-border-l1)', background: 'transparent', color: 'var(--dsw-alias-label-primary)', cursor: busy ? 'default' : 'pointer' },
+        }, t('installDockCancel')),
+        h('button', {
+          type: 'button',
+          disabled: busy || done,
+          onClick: install,
+          'data-codex-advisor-install-confirm': '',
+          style: { fontSize: 11.5, padding: '5px 10px', borderRadius: 7, border: '1px solid var(--dsw-alias-link)', background: 'var(--dsw-alias-link)', color: 'var(--dsw-alias-bg-layer-1)', cursor: busy ? 'default' : 'pointer' },
+        }, busy ? t('installDockInstalling') : t('installDockInstall')),
+      )));
     }
 
-    function LeftDockSeat(props) {
-      const position = usePanelPosition();
-      return h(CodexCard, { ...props, placement: 'left', active: position === 'left' });
+    // dsh-panel-dock owns the right column and the left stack. The panel
+    // component only draws the card: one root, dock props spread, style last.
+    function AdvisorPanel(props) {
+      return h(CodexCard, Object.assign({}, props, { docked: true }));
+    }
+
+    // Without the dock the card stays in the left sidebar and cannot move.
+    function LeftFallback(props) {
+      return h(CodexCard, Object.assign({}, props, { docked: false, active: true }));
     }
 
     function TurnCard(props) {
@@ -2145,24 +2051,88 @@ window.__ModuleLoader__.load({
       ));
     }
 
+    // Register either a panel-dock panel or the left fallback. The dock is
+    // optional; when it appears late the fallback is removed and the real
+    // panel takes over, without reloading the page.
+    function registerPanelSurface(ctx, t) {
+      let disposed = false;
+      let dockDispose = null;
+      let fallbackDispose = null;
+      let timer = 0;
+
+      const registerFallback = () => {
+        if (disposed || fallbackDispose) return;
+        fallbackDispose = ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
+          name: 'sidebar.footer.action',
+          id: 'codex-advisor-card',
+          order: 20,
+          locale: NS,
+          inject: () => ({ t }),
+        }, LeftFallback)) || null;
+      };
+
+      const useDock = (dock) => {
+        if (dockDispose || disposed) return;
+        try {
+          const dispose = dock.define({
+            id: PANEL_DOCK_ID,
+            title: 'Codex Advisor',
+            order: 20,
+            side: 'left',
+            height: 'auto',
+            component: AdvisorPanel,
+          });
+          dockDispose = typeof dispose === 'function' ? dispose : () => {};
+          if (fallbackDispose) {
+            try { fallbackDispose(); } catch { /* ignore */ }
+            fallbackDispose = null;
+          }
+        } catch (err) {
+          try { console.warn('[codex-advisor] panel-dock define failed', err); } catch { /* ignore */ }
+          registerFallback();
+        }
+      };
+
+      const poll = (attempt) => {
+        if (disposed || dockDispose) return;
+        const dock = panelDockApi();
+        if (dock && typeof dock.define === 'function') {
+          useDock(dock);
+          return;
+        }
+        if (attempt >= 30) return;
+        timer = setTimeout(() => poll(attempt + 1), 100);
+      };
+
+      // If the dock is already up, use it without mounting the fallback first;
+      // otherwise show the left card immediately and upgrade in place if the
+      // dock is merely slower to publish its global.
+      const initial = panelDockApi();
+      if (initial && typeof initial.define === 'function') {
+        useDock(initial);
+      } else {
+        registerFallback();
+        poll(0);
+      }
+
+      return () => {
+        disposed = true;
+        if (timer) clearTimeout(timer);
+        if (dockDispose) try { dockDispose(); } catch { /* ignore */ }
+        if (fallbackDispose) try { fallbackDispose(); } catch { /* ignore */ }
+        dockDispose = null;
+        fallbackDispose = null;
+      };
+    }
+
     return {
       inject: ['slots', 'locale'],
       apply(ctx) {
         fallbackT = ctx.locale.bind(NS);
-        ctx.effect(() => {
-          if (typeof document === 'undefined') return undefined;
-          const id = 'dsh-codex-advisor-footer-layout';
-          if (document.getElementById(id)) return undefined;
-          const style = document.createElement('style');
-          style.id = id;
-          style.dataset.plugin = 'dsh-codex-advisor';
-          style.textContent = FOOTER_LAYOUT_CSS;
-          document.head.appendChild(style);
-          return () => style.remove();
-        }, 'dsh-codex-advisor: footer action wrapping');
         ctx.effect(() => ctx.locale.register(NS, { zh: en, en }), 'dsh-codex-advisor: locale dictionaries');
         const t = ctx.locale.bind(NS);
         fallbackT = t;
+
         if (typeof window !== 'undefined' && window.__CODEX_ADVISOR_TEST__ === true) {
           window.__codexAdvisorTest = {
             renderMarkdown,
@@ -2170,13 +2140,12 @@ window.__ModuleLoader__.load({
             ThreadRail,
             TurnCard,
             AdvisorMark,
+            DockMark,
+            AdvisorPanel,
+            LeftFallback,
             CHATGPT_MARK_PATH,
-            FOOTER_LAYOUT_CSS,
-            LeftDockSeat,
-            RightDockSeat,
-            measureRightDock,
-            readPanelPosition,
-            writePanelPosition,
+            readDockSide,
+            panelDockApi,
             en,
             SessionProbe,
             getActiveSession,
@@ -2194,21 +2163,7 @@ window.__ModuleLoader__.load({
           order: -1000,
         }, SessionProbe));
 
-        ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
-          name: 'sidebar.footer.action',
-          id: 'codex-advisor-card',
-          order: 20,
-          locale: NS,
-          inject: () => ({ t }),
-        }, LeftDockSeat));
-
-        ctx.slots.inject('shell.overlay', () => ctx.slots.register({
-          name: 'shell.overlay',
-          id: 'codex-advisor-right-dock',
-          order: 20,
-          locale: NS,
-          inject: () => ({ t }),
-        }, RightDockSeat));
+        ctx.effect(() => registerPanelSurface(ctx, t), 'dsh-codex-advisor: panel surface');
 
         ctx.slots.inject('conversation.view', () => ctx.slots.register({
           name: 'conversation.view',
