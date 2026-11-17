@@ -55,7 +55,15 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   assert.match(source, /function measureRightDock/);
   assert.match(source, /shell\.overlay/);
   assert.match(source, /data-codex-advisor-position-toggle/);
-  assert.match(source, /wideLayout = placement === 'right' && !narrow/);
+  // The brand mark itself is the dock switch: no extra header control, and the
+  // trailing status/model cluster keeps its space.
+  assert.match(source, /const showSwitch = cardHovered \|\| markHovered/);
+  assert.match(source, /showSwitch \? h\(DockMark/);
+  assert.doesNotMatch(source, /dockButton/);
+  assert.doesNotMatch(source, /flex: '0 0 18px'/);
+  assert.match(source, /const showSwitch = cardHovered \|\| markHovered/);
+  assert.doesNotMatch(source, /wideLayout/);
+  assert.doesNotMatch(source, /dockButton/);
 });
 
 test('the screenshot harness keeps SVG camelCase attributes intact', () => {

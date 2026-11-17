@@ -1100,6 +1100,7 @@ window.__ModuleLoader__.load({
         fill: 'none',
         role: 'img',
         'aria-label': 'ChatGPT',
+        'data-codex-advisor-mark': 'brand',
         style: { display: 'block' },
       }, h('g', { transform: 'translate(2 2) scale(0.833333)' },
         h('path', {
@@ -1162,6 +1163,7 @@ window.__ModuleLoader__.load({
         viewBox: '0 0 24 24',
         fill: 'none',
         'aria-hidden': true,
+        'data-codex-advisor-mark': 'switch',
         style: { display: 'block' },
       },
       h('rect', { x: 2.6, y: 4.4, width: 18.8, height: 15.2, rx: 3, stroke: 'currentColor', strokeWidth: 1.5 }),
@@ -1176,6 +1178,8 @@ window.__ModuleLoader__.load({
       const active = props.active !== false;
       const position = usePanelPosition();
       const [narrow, setNarrow] = React.useState(false);
+      const [cardHovered, setCardHovered] = React.useState(false);
+      const [markHovered, setMarkHovered] = React.useState(false);
       const sessionId = useActiveSession();
       const updateState = useUpdate();
       const [updateOpen, setUpdateOpen] = React.useState(false);
@@ -1327,98 +1331,40 @@ window.__ModuleLoader__.load({
         : hasAnswer
           ? 'var(--dsw-alias-label-primary)'
           : 'var(--dsw-alias-label-secondary)';
-      const wideLayout = placement === 'right' && !narrow;
       const dockTarget = position === 'right' ? 'left' : 'right';
-      const dockButton = h('button', {
+      // The brand mark doubles as the dock switch: the ChatGPT glyph at rest,
+      // the panel glyph while the card or the mark is hovered or focused. No
+      // extra control is added, so the header's trailing status/model cluster
+      // keeps its space.
+      const showSwitch = cardHovered || markHovered;
+      const markButton = h('button', {
         type: 'button',
         'data-codex-advisor-position-toggle': '',
         'aria-label': position === 'right' ? t('moveToLeft') : t('moveToRight'),
         title: position === 'right' ? t('moveToLeft') : t('moveToRight'),
         onClick: () => writePanelPosition(dockTarget),
+        onMouseEnter: () => setMarkHovered(true),
+        onMouseLeave: () => setMarkHovered(false),
+        onFocus: () => setMarkHovered(true),
+        onBlur: () => setMarkHovered(false),
         style: {
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          flex: '0 0 18px',
-          width: 18,
-          height: 18,
+          flex: '0 0 auto',
           padding: 0,
+          margin: 0,
           border: 0,
-          borderRadius: 5,
           background: 'transparent',
-          color: 'var(--dsw-alias-label-secondary)',
+          color: 'inherit',
+          lineHeight: 0,
           cursor: 'pointer',
         },
-      }, h(DockMark, { target: dockTarget }));
-
-      if (wideLayout) {
-        const statusNode = h('div', {
-          style: { display: 'flex', alignItems: 'center', gap: 5, flex: '0 0 auto', minWidth: 0 },
-          title: statusLabel,
-          role: 'img',
-          'aria-label': statusLabel,
-        },
-        h('span', { style: { width: 7, height: 7, borderRadius: 99, background: statusColor, flex: '0 0 auto' } }),
-        modelEffort ? h('span', {
-          style: {
-            color: 'var(--dsw-alias-label-secondary)',
-            fontSize: 9.5,
-            lineHeight: 1.2,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            maxWidth: 92,
-          },
-        }, modelEffort) : null);
-        return h('div', {
-          ref: rootRef,
-          'data-codex-advisor-card': true,
-          'data-codex-advisor-placement': 'right',
-          style: {
-            width: '100%',
-            minWidth: 0,
-            boxSizing: 'border-box',
-            margin: 0,
-            padding: '8px 10px',
-            border: '1px solid var(--dsw-alias-border-l1)',
-            borderRadius: 12,
-            background: 'var(--dsw-alias-bg-layer-1)',
-            boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 22px rgba(15, 23, 42, 0.06)',
-            color: 'var(--dsw-alias-label-primary)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            minHeight: 44,
-          },
-          role: 'group',
-          'aria-label': t('cardTitle'),
-        },
-        h(AdvisorMark),
-        h('span', { style: { fontWeight: 650, fontSize: 12.5, lineHeight: '13px', whiteSpace: 'nowrap', flex: '0 0 auto' } }, t('cardTitle')),
-        h(VersionBadge, {
-          t,
-          update: updateState.value,
-          checking: updateState.checking,
-          onCheck: checkUpdates,
-          version,
-        }),
-        statusNode,
-        h('span', {
-          title: answerText,
-          style: {
-            flex: '1 1 auto',
-            minWidth: 0,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            color: answerColor,
-            fontSize: 10.5,
-            lineHeight: 1.2,
-          },
-        }, answerText),
-        dockButton,
-        );
-      }
+      }, showSwitch ? h(DockMark, { target: dockTarget }) : h(AdvisorMark));
+      const cardHoverProps = {
+        onMouseEnter: () => setCardHovered(true),
+        onMouseLeave: () => { setCardHovered(false); setMarkHovered(false); },
+      };
 
       return h('div', {
         ref: rootRef,
@@ -1432,25 +1378,40 @@ window.__ModuleLoader__.load({
           order: 1,
           gridColumn: '1 / -1',
           margin: '0 0 6px',
-          padding: '9px 10px 8px',
+          padding: '10px 9px 8px',
           border: '1px solid var(--dsw-alias-border-l1)',
           borderRadius: 12,
-          background: 'var(--dsw-alias-bg-layer-1)',
-          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 22px rgba(15, 23, 42, 0.06)',
+          // Docked right, the card keeps the sidebar's own fill so it reads as
+          // the same surface moved sideways, not a white floating window.
+          background: placement === 'right'
+            ? 'var(--dsw-specific-sidebar-fill, var(--dsw-alias-bg-module-platform))'
+            : 'var(--dsw-alias-bg-layer-1)',
+          boxShadow: '0 3px 12px rgba(0, 0, 0, 0.16)',
           color: 'var(--dsw-alias-label-primary)',
           display: 'flex',
           flexDirection: 'column',
-          gap: 4,
+          gap: 5,
+          fontVariantNumeric: 'tabular-nums',
         },
         role: 'group',
         'aria-label': t('cardTitle'),
+        ...cardHoverProps,
       },
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 } },
-        h(AdvisorMark),
+        markButton,
         // The line box matches the 13px mark box so the title's cap-height
         // center and the mark's ink center coincide by construction, instead
         // of inheriting whatever line-height the host happens to set.
-        h('span', { style: { fontWeight: 650, fontSize: 12.5, lineHeight: '13px', whiteSpace: 'nowrap' } }, t('cardTitle')),
+        h('span', {
+          style: {
+            fontWeight: 700,
+            fontSize: 13,
+            lineHeight: '13px',
+            letterSpacing: '-0.01em',
+            color: 'var(--dsw-alias-label-primary)',
+            whiteSpace: 'nowrap',
+          },
+        }, t('cardTitle')),
         h(VersionBadge, {
           t,
           update: updateState.value,
@@ -1483,7 +1444,6 @@ window.__ModuleLoader__.load({
             textOverflow: 'ellipsis',
           },
         }, modelEffort) : null),
-        dockButton,
       ),
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 } },
         turnCount > 0 ? h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 9.5, whiteSpace: 'nowrap' } }, `${turnCount} ${t('rounds')}`) : null,
@@ -1500,16 +1460,16 @@ window.__ModuleLoader__.load({
         }, `${threadCount} threads`) : null,
       ),
       hasThread ? h('div', {
+        title: threadLabel ?? '',
         style: {
           display: 'flex',
           alignItems: 'center',
           gap: 6,
           minWidth: 0,
           color: 'var(--dsw-alias-label-secondary)',
-          fontSize: 9.5,
-          lineHeight: 1.35,
+          fontSize: 11,
+          lineHeight: 1.3,
         },
-        title: threadLabel ?? '',
       },
         h('span', {
           style: {
@@ -1534,8 +1494,8 @@ window.__ModuleLoader__.load({
         h('div', { style: { color: THEME.accent, fontSize: 9.5, fontWeight: 600, marginBottom: 2 } }, 'Ask'),
         h('div', {
           style: {
-            fontSize: 11.5,
-            lineHeight: 1.45,
+            fontSize: 11,
+            lineHeight: 1.3,
             color: 'var(--dsw-alias-label-primary)',
             display: '-webkit-box',
             WebkitBoxOrient: 'vertical',
@@ -1558,8 +1518,8 @@ window.__ModuleLoader__.load({
         h('div', {
           style: {
             color: answerColor,
-            fontSize: 11.5,
-            lineHeight: 1.45,
+            fontSize: 11,
+            lineHeight: 1.3,
             display: '-webkit-box',
             WebkitBoxOrient: 'vertical',
             WebkitLineClamp: 2,
@@ -1595,8 +1555,8 @@ window.__ModuleLoader__.load({
     // and pinned into the blank strip between the transcript and the turn rail.
     const DOCK_GAP = 6;
     const DOCK_MIN_WIDTH = 200;
-    const DOCK_MAX_WIDTH = 360;
-    const DOCK_FLOOR_WIDTH = 140;
+    const DOCK_MAX_WIDTH = 480;
+    const DOCK_FLOOR_WIDTH = 240;
 
     function measureRightDock() {
       const holder = document.querySelector('[data-slot="main.conversation"]');
@@ -1638,13 +1598,23 @@ window.__ModuleLoader__.load({
         }
       }
 
-      const floored = span < 240;
-      const width = floored ? 240 : Math.min(span, DOCK_MAX_WIDTH);
+      let top = contentTop;
+      // Another plugin's dock already occupies this band: stack below it rather
+      // than overlap.
+      for (const other of document.querySelectorAll('[data-ustc-quota-dock="right"], [data-codex-advisor-foreign-dock="right"]')) {
+        const rect = other.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) continue;
+        if (rect.right <= leftEdge || rect.left >= rightEdge) continue;
+        if (rect.bottom > top) top = Math.round(rect.bottom) + DOCK_GAP;
+      }
+
+      const floored = span < DOCK_MIN_WIDTH;
+      const width = floored ? DOCK_FLOOR_WIDTH : Math.min(span, DOCK_MAX_WIDTH);
       return {
-        top: contentTop,
-        left: floored ? Math.max(0, rightEdge - 240) : leftEdge,
+        top,
+        left: floored ? Math.max(0, rightEdge - DOCK_FLOOR_WIDTH) : leftEdge,
         width,
-        maxHeight: Math.max(120, Math.round(columnRect.bottom) - contentTop - DOCK_GAP),
+        maxHeight: Math.max(120, Math.round(columnRect.bottom) - top - DOCK_GAP),
       };
     }
 
@@ -1693,7 +1663,7 @@ window.__ModuleLoader__.load({
           left: box ? box.left : 0,
           width: box ? box.width : DOCK_MIN_WIDTH,
           maxHeight: box ? box.maxHeight : 0,
-          overflowY: 'auto',
+          overflow: 'visible',
           pointerEvents: 'auto',
           zIndex: 5,
           display: shown ? 'flex' : 'none',
