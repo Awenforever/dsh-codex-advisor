@@ -56,10 +56,18 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   // Cross-plugin stacking must not be "yield to anything below me": that is the
   // symmetric rule that makes two right docks chase each other downwards.
   assert.match(source, /const DOCK_ID = 'codex-advisor'/);
+  // First come, first served: the earlier arrival keeps the natural slot and
+  // the later one stacks below. The id rule survives only as the fallback for
+  // a neighbour that publishes no arrival number.
+  assert.match(source, /const ARRIVAL_KEY = '__dshRightDockArrival'/);
+  assert.match(source, /function claimDockArrival/);
+  assert.match(source, /function neighbourDockVisible/);
+  assert.match(source, /'data-codex-advisor-dock-order': arrivalRef\.current \|\| undefined/);
+  assert.match(source, /data-ustc-quota-dock-order/);
+  assert.match(source, /yieldToNeighbour = neighbourArrival < arrival/);
+  assert.match(source, /if \(wasHereFirst && rect\.top > contentTop\)/);
   assert.match(source, /const startsAbove = rect\.top < contentTop - 1/);
-  assert.match(source, /const tiedAndEarlier = Math\.abs\(rect\.top - contentTop\) <= 1 && neighbourId < DOCK_ID/);
-  assert.match(source, /if \(!startsAbove && !tiedAndEarlier\) continue/);
-  assert.doesNotMatch(source, /if \(rect\.bottom > top\) top = /);
+  assert.match(source, /NEIGHBOUR_DOCK_ID < DOCK_ID/);
   assert.match(source, /shell\.overlay/);
   assert.match(source, /data-codex-advisor-position-toggle/);
   // The brand mark itself is the dock switch: no extra header control, and the

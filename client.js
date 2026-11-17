@@ -1557,14 +1557,46 @@ window.__ModuleLoader__.load({
     const DOCK_MIN_WIDTH = 200;
     const DOCK_MAX_WIDTH = 480;
     const DOCK_FLOOR_WIDTH = 240;
-    // Identity used by the cross-plugin tie-break, and the neighbour list it
-    // negotiates with. Keep the ids as the other plugin publishes them.
+    // Cross-plugin stacking: first come, first served.
+    //
+    // Each plugin's right dock claims an arrival number the moment it becomes
+    // active on the right and publishes it as a data attribute, so a neighbour
+    // can compare. The earlier arrival keeps the natural slot; the later one
+    // stacks below it. Deliberately not id-ordered and not height-ordered:
+    // whoever got there first wins, which is the least surprising rule.
+    //
+    // Counterpart: dsh-ustc-quota v1.1.58, which publishes
+    // `data-ustc-quota-dock-order` and reads ours.
+    const ARRIVAL_KEY = '__dshRightDockArrival';
     const DOCK_ID = 'codex-advisor';
-    const DOCK_NEIGHBOURS = Object.freeze([
-      ['ustc-quota', '[data-ustc-quota-dock="right"]'],
-    ]);
+    const NEIGHBOUR_DOCK_ID = 'ustc-quota';
+    const DOCK_ORDER_ATTR = 'data-ustc-quota-dock-order';
 
-    function measureRightDock() {
+    function claimDockArrival() {
+      try {
+        const scope = typeof window === 'undefined' ? null : window;
+        if (!scope) return 0;
+        const next = (Number(scope[ARRIVAL_KEY]) || 0) + 1;
+        scope[ARRIVAL_KEY] = next;
+        return next;
+      } catch {
+        return 0;
+      }
+    }
+
+    function neighbourDockVisible() {
+      try {
+        for (const node of document.querySelectorAll('[data-ustc-quota-dock="right"]')) {
+          const rect = node.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) return true;
+        }
+      } catch {
+        return false;
+      }
+      return false;
+    }
+
+    function measureRightDock(arrival = 0, wasHereFirst = false) {
       const holder = document.querySelector('[data-slot="main.conversation"]');
       const column = holder ? (holder.firstElementChild || holder) : null;
       if (!column) return null;
@@ -1605,33 +1637,41 @@ window.__ModuleLoader__.load({
       }
 
       let top = contentTop;
-      // Cross-plugin stacking contract (agreed with dsh-ustc-quota v1.1.57).
-      //
-      // Two docks that each "yield to whoever is above me" form a positive
-      // feedback loop: A yields to B, B now sees A inside its own band and
-      // yields, A sees B below and yields again, forever. The loop breaks only
-      // if exactly one of the pair yields, and the decision uses the
-      // *natural* top (contentTop), never the already-shifted one.
-      //
-      // Rule, applied per neighbour whose band overlaps ours:
-      //   - neighbour starts strictly above us (top < contentTop - 1) -> it is
-      //     sitting in our slot, so we yield;
-      //   - same height (within 1px) -> tie-break on the dock id: yield only if
-      //     the neighbour id sorts before ours. 'codex-advisor' < 'ustc-quota',
-      //     so Codex Advisor keeps the natural slot and ustc-quota yields;
-      //   - neighbour starts below us -> never yield. This clause is what stops
-      //     the descent; dropping it reintroduces the spiral.
-      for (const [neighbourId, selector] of DOCK_NEIGHBOURS) {
-        for (const other of document.querySelectorAll(selector)) {
+      try {
+        for (const other of document.querySelectorAll('[data-ustc-quota-dock="right"]')) {
           const rect = other.getBoundingClientRect();
           if (rect.width <= 0 || rect.height <= 0) continue;
           if (rect.right <= leftEdge || rect.left >= rightEdge) continue;
-          const startsAbove = rect.top < contentTop - 1;
-          const tiedAndEarlier = Math.abs(rect.top - contentTop) <= 1 && neighbourId < DOCK_ID;
-          if (!startsAbove && !tiedAndEarlier) continue;
-          const stacked = Math.round(rect.bottom) + DOCK_GAP;
-          if (stacked > top) top = stacked;
+
+          // Arrival comparison is the rule. Two docks that each "yield to
+          // whatever is above me" chase each other downwards forever; yielding
+          // only to the earlier arrival makes exactly one side move, once.
+          const neighbourArrival = Number(other.getAttribute(DOCK_ORDER_ATTR)) || 0;
+          let yieldToNeighbour;
+          if (neighbourArrival > 0 && arrival > 0) {
+            yieldToNeighbour = neighbourArrival < arrival;
+          } else if (wasHereFirst && rect.top > contentTop) {
+            // We were already here when the neighbour appeared and it sits
+            // below us: never chase it. If it shares our slot (a neighbour that
+            // has not adopted this contract yet) fall through to the position
+            // rule, because two overlapping cards are worse than a wrong order.
+            yieldToNeighbour = false;
+          } else {
+            // Fallback for neighbours without an arrival number: yield when it
+            // already occupies this slot, and on an exact tie let the earlier
+            // id win so the very first paint cannot deadlock.
+            const startsAbove = rect.top < contentTop - 1;
+            const tiedAndEarlier = Math.abs(rect.top - contentTop) <= 1 && NEIGHBOUR_DOCK_ID < DOCK_ID;
+            yieldToNeighbour = startsAbove || tiedAndEarlier;
+          }
+          if (!yieldToNeighbour) continue;
+          if (rect.top < columnRect.bottom) {
+            const stacked = Math.round(rect.bottom) + DOCK_GAP;
+            if (stacked > top) top = stacked;
+          }
         }
+      } catch {
+        // Stacking is best-effort; a broken neighbour must not break this card.
       }
 
       const floored = span < DOCK_MIN_WIDTH;
@@ -1649,6 +1689,22 @@ window.__ModuleLoader__.load({
       const position = usePanelPosition();
       const active = position === 'right';
       const [box, setBox] = React.useState(null);
+      const arrivalRef = React.useRef(0);
+      const firstRef = React.useRef(false);
+
+      // Claim the arrival slot exactly once per activation, so a later re-dock
+      // queues behind whoever is already there.
+      React.useEffect(() => {
+        if (active) {
+          firstRef.current = !neighbourDockVisible();
+          arrivalRef.current = claimDockArrival();
+          setBox(measureRightDock(arrivalRef.current, firstRef.current));
+        } else {
+          arrivalRef.current = 0;
+          firstRef.current = false;
+        }
+      }, [active]);
+
       React.useEffect(() => {
         if (!active) return undefined;
         let frame = 0;
@@ -1664,7 +1720,7 @@ window.__ModuleLoader__.load({
             observer = new ResizeObserver(schedule);
             observer.observe(column);
           }
-          setBox(measureRightDock());
+          setBox(measureRightDock(arrivalRef.current, firstRef.current));
         };
         function schedule() {
           if (!frame) frame = window.requestAnimationFrame(measure);
@@ -1683,6 +1739,7 @@ window.__ModuleLoader__.load({
       const shown = active && box !== null;
       return h('div', {
         'data-codex-advisor-dock': 'right',
+        'data-codex-advisor-dock-order': arrivalRef.current || undefined,
         style: {
           position: 'fixed',
           top: box ? box.top : 0,

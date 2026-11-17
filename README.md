@@ -4,7 +4,7 @@ A persistent **Codex advisor** for [DeepSeek Harness](https://github.com/deepsee
 
 One DSH session can keep several labeled Codex threads. Continue a thread for the same objective, or start another for a different aspect or model class. Codex runs through the official `codex app-server` protocol under your existing ChatGPT/Codex login, so it uses your Codex quota rather than a separate API key.
 
-> **Current release: 0.9.3.** Tested with DSH Desktop `0.2.1-rc.5` on Windows 11 and Codex CLI `0.166.0-alpha.5.1`. See [Compatibility](#compatibility).
+> **Current release: 0.9.4.** Tested with DSH Desktop `0.2.1-rc.5` on Windows 11 and Codex CLI `0.166.0-alpha.5.1`. See [Compatibility](#compatibility).
 
 ## What you get
 
@@ -33,7 +33,7 @@ The plugin is not affiliated with OpenAI or DeepSeek. It uses your existing Code
 Install the release tarball through DSH's plugin manager:
 
 ```text
-https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.9.3.tar.gz
+https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.9.4.tar.gz
 ```
 
 After installation, add/keep the `codex-advisor` bundle and restart DSH if the Host requests it. A client-bundle change may require a full DSH quit/reopen or a page reload; the Codex tab and sidebar card appear after the client bundle is reloaded.
@@ -41,7 +41,7 @@ After installation, add/keep the `codex-advisor` bundle and restart DSH if the H
 ### Web / CLI profile
 
 ```powershell
-dsh plugin --profile <profile> add https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.9.3.tar.gz
+dsh plugin --profile <profile> add https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.9.4.tar.gz
 ```
 
 Then restart that DSH profile. For the app-managed `desktop` profile, use the app's plugin manager instead of editing the profile by hand.
@@ -89,13 +89,15 @@ The policy stores a **family**, not a frozen version. On new-thread creation the
 
 ### Right-dock stacking contract
 
-Two docks that both "yield to whatever is above me" chase each other downwards forever: A yields to B, B then sees A in its own band and yields, and so on. The contract is therefore one-sided:
+Two docks that each "yield to whatever is above me" chase each other downwards forever. The contract that terminates this is **first come, first served**:
 
-- a neighbour that starts **strictly above** our natural top yields us down below it;
-- at the **same height**, only the dock whose id sorts later yields — `codex-advisor` < `ustc-quota`, so Codex Advisor keeps the natural slot and `dsh-ustc-quota` moves below;
-- a neighbour that starts **below** us is never yielded to; that clause is what terminates the descent.
+- the moment a dock becomes active on the right it claims an arrival number from `window.__dshRightDockArrival` and publishes it as `data-codex-advisor-dock-order` (this plugin) / `data-ustc-quota-dock-order` (`dsh-ustc-quota`);
+- a dock yields only to a neighbour with a **smaller** arrival number, i.e. one that got there first; a neighbour that arrived later stacks below instead;
+- a dock that was already on the right when the neighbour appeared never yields to a neighbour sitting below it;
+- positions are computed from the *natural* top, before any yielding;
+- neighbours that publish no arrival number fall back to a position rule (yield when the neighbour already occupies this slot, and on an exact tie the earlier id yields) so the first paint cannot deadlock. Two overlapping cards are worse than a wrong order.
 
-Positions are computed from the *natural* top, before any yielding, and the same rule is implemented on the other side (`dsh-ustc-quota` v1.1.57). Do not "simplify" it into an unconditional "stack below any overlapping dock" — that reintroduces the spiral.
+Deliberately not id-ordered and not height-ordered: whoever arrived first keeps the slot. The same rule is implemented by `dsh-ustc-quota` v1.1.58; do not "simplify" it back into an unconditional stack-below, which reintroduces the spiral.
 
 ## Configuration
 
