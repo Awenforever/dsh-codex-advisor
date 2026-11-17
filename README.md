@@ -4,14 +4,14 @@ A persistent **Codex advisor** for [DeepSeek Harness](https://github.com/deepsee
 
 One DSH session can keep several labeled Codex threads. Continue a thread for the same objective, or start another for a different aspect or model class. Codex runs through the official `codex app-server` protocol under your existing ChatGPT/Codex login, so it uses your Codex quota rather than a separate API key.
 
-> **Current release: 0.9.2.** Tested with DSH Desktop `0.2.1-rc.5` on Windows 11 and Codex CLI `0.166.0-alpha.5.1`. See [Compatibility](#compatibility).
+> **Current release: 0.9.3.** Tested with DSH Desktop `0.2.1-rc.5` on Windows 11 and Codex CLI `0.166.0-alpha.5.1`. See [Compatibility](#compatibility).
 
 ## What you get
 
 - Six native tools: `codex_ask`, `codex_poll`, `codex_cancel`, `codex_status`, `codex_history`, `codex_reset`.
 - A **Codex trail** tab with thread rail, Markdown Ask/Answer blocks, activity, and a per-turn `model · effort` footnote.
 - A compact **Codex Advisor** card in the sidebar with the active thread, latest ask/answer, status light, and model/effort. The card takes its own row in the sidebar footer (the host renders `sidebar.footer.action` as one non-wrapping flex row, so the card lets that row wrap while it is mounted). Its mark is filled and lightly stroked: this asset is a thin ribbon outline, and stroke-only rendering at sidebar size antialiases into a grey smudge.
-- **Left/right dock switcher**: the card's own brand mark is the switch — it shows the ChatGPT glyph at rest and the panel glyph while the card is hovered or focused, so the header gains no extra control and the trailing status/model cluster keeps its space. Clicking it moves the card between the sidebar and a measured right-hand dock. The right seat lives in `shell.overlay` and measures the conversation column; it caps the dock at 480px and falls back to a 240px compact dock when the strip is narrower than 200px; docked right the card keeps the sidebar fill. The choice is stored in `localStorage` under `dsh-codex-advisor:position`.
+- **Left/right dock switcher**: the card's own brand mark is the switch — it shows the ChatGPT glyph at rest and the panel glyph while the card is hovered or focused, so the header gains no extra control and the trailing status/model cluster keeps its space. Clicking it moves the card between the sidebar and a measured right-hand dock. The right seat lives in `shell.overlay` and measures the conversation column; it caps the dock at 480px and falls back to a 240px compact dock when the strip is narrower than 200px; docked right the card keeps the sidebar fill. Two plugin docks on the same side stack by a fixed contract (see below), never by chasing each other. The choice is stored in `localStorage` under `dsh-codex-advisor:position`.
 - **Split-pane aware**: the sidebar card follows the focused pane; a pane-owned view keeps its own `sessionId`, and shared split containers/toolbars do not steal focus. Focus switching only reads snapshots — it never calls `codex_ask` or writes thread/state. Tested against the latest `dsh-multiview` (`0.1.20`); older split-view versions are not supported.
 - **Theme-aware UI**: surfaces, Ask/Answer tints, status colors, errors, and the update modal use DSH semantic tokens and follow DSH light/dark automatically. There is no separate theme toggle.
 - State and thread bindings survive DSH restarts.
@@ -33,7 +33,7 @@ The plugin is not affiliated with OpenAI or DeepSeek. It uses your existing Code
 Install the release tarball through DSH's plugin manager:
 
 ```text
-https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.9.2.tar.gz
+https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.9.3.tar.gz
 ```
 
 After installation, add/keep the `codex-advisor` bundle and restart DSH if the Host requests it. A client-bundle change may require a full DSH quit/reopen or a page reload; the Codex tab and sidebar card appear after the client bundle is reloaded.
@@ -41,7 +41,7 @@ After installation, add/keep the `codex-advisor` bundle and restart DSH if the H
 ### Web / CLI profile
 
 ```powershell
-dsh plugin --profile <profile> add https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.9.2.tar.gz
+dsh plugin --profile <profile> add https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.9.3.tar.gz
 ```
 
 Then restart that DSH profile. For the app-managed `desktop` profile, use the app's plugin manager instead of editing the profile by hand.
@@ -86,6 +86,16 @@ Routing is deterministic: the caller chooses a `purpose`, and the plugin maps it
 | `routine` | luna | max | Mechanical, high-certainty, low-blast-radius work; Luna is floored at max |
 
 The policy stores a **family**, not a frozen version. On new-thread creation the plugin reads `model/list` from the Codex app-server and selects the newest visible version in that family; if a future `gpt-6.1-luna` appears, `routine`/`verify` use it automatically. Static names are fallbacks when the catalog is unavailable. An exact model id pins that exact version; a family alias (for example `luna`) resolves to its newest visible version.
+
+### Right-dock stacking contract
+
+Two docks that both "yield to whatever is above me" chase each other downwards forever: A yields to B, B then sees A in its own band and yields, and so on. The contract is therefore one-sided:
+
+- a neighbour that starts **strictly above** our natural top yields us down below it;
+- at the **same height**, only the dock whose id sorts later yields — `codex-advisor` < `ustc-quota`, so Codex Advisor keeps the natural slot and `dsh-ustc-quota` moves below;
+- a neighbour that starts **below** us is never yielded to; that clause is what terminates the descent.
+
+Positions are computed from the *natural* top, before any yielding, and the same rule is implemented on the other side (`dsh-ustc-quota` v1.1.57). Do not "simplify" it into an unconditional "stack below any overlapping dock" — that reintroduces the spiral.
 
 ## Configuration
 

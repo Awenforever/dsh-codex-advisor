@@ -53,6 +53,13 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   assert.match(source, /function RightDockSeat/);
   assert.match(source, /function LeftDockSeat/);
   assert.match(source, /function measureRightDock/);
+  // Cross-plugin stacking must not be "yield to anything below me": that is the
+  // symmetric rule that makes two right docks chase each other downwards.
+  assert.match(source, /const DOCK_ID = 'codex-advisor'/);
+  assert.match(source, /const startsAbove = rect\.top < contentTop - 1/);
+  assert.match(source, /const tiedAndEarlier = Math\.abs\(rect\.top - contentTop\) <= 1 && neighbourId < DOCK_ID/);
+  assert.match(source, /if \(!startsAbove && !tiedAndEarlier\) continue/);
+  assert.doesNotMatch(source, /if \(rect\.bottom > top\) top = /);
   assert.match(source, /shell\.overlay/);
   assert.match(source, /data-codex-advisor-position-toggle/);
   // The brand mark itself is the dock switch: no extra header control, and the

@@ -1557,6 +1557,12 @@ window.__ModuleLoader__.load({
     const DOCK_MIN_WIDTH = 200;
     const DOCK_MAX_WIDTH = 480;
     const DOCK_FLOOR_WIDTH = 240;
+    // Identity used by the cross-plugin tie-break, and the neighbour list it
+    // negotiates with. Keep the ids as the other plugin publishes them.
+    const DOCK_ID = 'codex-advisor';
+    const DOCK_NEIGHBOURS = Object.freeze([
+      ['ustc-quota', '[data-ustc-quota-dock="right"]'],
+    ]);
 
     function measureRightDock() {
       const holder = document.querySelector('[data-slot="main.conversation"]');
@@ -1599,13 +1605,33 @@ window.__ModuleLoader__.load({
       }
 
       let top = contentTop;
-      // Another plugin's dock already occupies this band: stack below it rather
-      // than overlap.
-      for (const other of document.querySelectorAll('[data-ustc-quota-dock="right"], [data-codex-advisor-foreign-dock="right"]')) {
-        const rect = other.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) continue;
-        if (rect.right <= leftEdge || rect.left >= rightEdge) continue;
-        if (rect.bottom > top) top = Math.round(rect.bottom) + DOCK_GAP;
+      // Cross-plugin stacking contract (agreed with dsh-ustc-quota v1.1.57).
+      //
+      // Two docks that each "yield to whoever is above me" form a positive
+      // feedback loop: A yields to B, B now sees A inside its own band and
+      // yields, A sees B below and yields again, forever. The loop breaks only
+      // if exactly one of the pair yields, and the decision uses the
+      // *natural* top (contentTop), never the already-shifted one.
+      //
+      // Rule, applied per neighbour whose band overlaps ours:
+      //   - neighbour starts strictly above us (top < contentTop - 1) -> it is
+      //     sitting in our slot, so we yield;
+      //   - same height (within 1px) -> tie-break on the dock id: yield only if
+      //     the neighbour id sorts before ours. 'codex-advisor' < 'ustc-quota',
+      //     so Codex Advisor keeps the natural slot and ustc-quota yields;
+      //   - neighbour starts below us -> never yield. This clause is what stops
+      //     the descent; dropping it reintroduces the spiral.
+      for (const [neighbourId, selector] of DOCK_NEIGHBOURS) {
+        for (const other of document.querySelectorAll(selector)) {
+          const rect = other.getBoundingClientRect();
+          if (rect.width <= 0 || rect.height <= 0) continue;
+          if (rect.right <= leftEdge || rect.left >= rightEdge) continue;
+          const startsAbove = rect.top < contentTop - 1;
+          const tiedAndEarlier = Math.abs(rect.top - contentTop) <= 1 && neighbourId < DOCK_ID;
+          if (!startsAbove && !tiedAndEarlier) continue;
+          const stacked = Math.round(rect.bottom) + DOCK_GAP;
+          if (stacked > top) top = stacked;
+        }
       }
 
       const floored = span < DOCK_MIN_WIDTH;
