@@ -1127,7 +1127,7 @@ window.__ModuleLoader__.load({
     // optional dependency: without it the card stays in the left sidebar and
     // the brand switch offers to install it instead of pretending it can move.
     const PANEL_DOCK_ID = 'codex-advisor';
-    const PANEL_DOCK_SPEC = 'https://github.com/Awenforever/dsh-panel-dock/archive/a8c789c59af04e7bb327f36d65bd519eb3f0505b.tar.gz';
+    const PANEL_DOCK_SPEC = 'https://github.com/Awenforever/dsh-panel-dock/archive/refs/tags/v0.3.12.tar.gz';
 
     function panelDockApi() {
       try {

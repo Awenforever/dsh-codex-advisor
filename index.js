@@ -17,6 +17,9 @@ import {
 import { AdvisorStore } from './lib/store.mjs';
 import { nodeSpawn } from './lib/spawn.mjs';
 import { UpdateService } from './lib/update.mjs';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { PANEL_DOCK_SPEC, PANEL_DOCK_VERSION, needsInstall, readInstalledVersion } from './lib/panel-dock.mjs';
 
 export const name = 'codex-advisor';
 export const inject = ['tools'];
@@ -118,9 +121,6 @@ const JSON_HEADERS = Object.freeze({
   'cache-control': 'no-store',
 });
 
-// Optional panel-dock bundle. Pinned to a commit because the project has no
-// release tag yet; bump it when a tag lands.
-const PANEL_DOCK_SPEC = 'https://github.com/Awenforever/dsh-panel-dock/archive/a8c789c59af04e7bb327f36d65bd519eb3f0505b.tar.gz';
 
 function queueWebRoutes(ctx, manager, updateService, disposers, log, attempt = 0) {
   const webServer = safeGet(ctx, 'webServer');
@@ -221,6 +221,20 @@ function registerWebRoutes(ctx, manager, updateService, disposers, log) {
         });
         return;
       }
+      // Never downgrade: an older pin must not replace a newer installed copy.
+      const installedVersion = readInstalledVersion(dirname(dirname(fileURLToPath(import.meta.url))));
+      if (!needsInstall(installedVersion)) {
+        log('info', { event: 'panel-dock-up-to-date', installedVersion, target: PANEL_DOCK_VERSION });
+        writeJson(response, 200, {
+          ok: true,
+          spec: PANEL_DOCK_SPEC,
+          installedVersion,
+          targetVersion: PANEL_DOCK_VERSION,
+          application: 'up-to-date',
+          reload: false,
+        });
+        return;
+      }
       const install = await pluginManager.installBundle(PANEL_DOCK_SPEC, { enabled: true, saveExact: true });
       const applied = install?.ok !== false && install?.application !== 'failed';
       log(applied ? 'info' : 'warn', {
@@ -232,6 +246,8 @@ function registerWebRoutes(ctx, manager, updateService, disposers, log) {
       writeJson(response, applied ? 200 : 502, {
         ok: applied,
         spec: PANEL_DOCK_SPEC,
+        installedVersion,
+        targetVersion: PANEL_DOCK_VERSION,
         application: install?.application ?? (applied ? 'applied' : 'failed'),
         message: install?.error?.message ?? install?.message ?? install?.error?.code,
         reload: applied,
