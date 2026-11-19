@@ -55,6 +55,8 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   assert.match(source, /id: PANEL_DOCK_ID/);
   assert.match(source, /side: 'left'/);
   assert.match(source, /height: 'auto'/);
+  // panel-dock must never render narrower than the measured readable floor.
+  assert.match(source, /minWidth: 260/);
   assert.match(source, /dock\.toggleSide\(PANEL_DOCK_ID\)/);
   assert.match(source, /dock\.getSide\(PANEL_DOCK_ID\)/);
   assert.match(source, /install-panel-dock/);

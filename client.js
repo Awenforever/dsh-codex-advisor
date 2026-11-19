@@ -1127,7 +1127,7 @@ window.__ModuleLoader__.load({
     // optional dependency: without it the card stays in the left sidebar and
     // the brand switch offers to install it instead of pretending it can move.
     const PANEL_DOCK_ID = 'codex-advisor';
-    const PANEL_DOCK_SPEC = 'https://github.com/Awenforever/dsh-panel-dock/archive/refs/tags/v0.3.12.tar.gz';
+    const PANEL_DOCK_SPEC = 'https://github.com/Awenforever/dsh-panel-dock/archive/refs/tags/v0.3.23.tar.gz';
 
     function panelDockApi() {
       try {
@@ -2080,6 +2080,9 @@ window.__ModuleLoader__.load({
             order: 20,
             side: 'left',
             height: 'auto',
+            // 240px truncated the status cluster on a real 1920px window; 260px is
+            // the measured floor, so declare it instead of letting the dock squeeze.
+            minWidth: 260,
             component: AdvisorPanel,
           });
           dockDispose = typeof dispose === 'function' ? dispose : () => {};
