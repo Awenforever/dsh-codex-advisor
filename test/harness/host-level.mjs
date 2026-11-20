@@ -49,6 +49,7 @@ apply(ctx, {
   maxWaitSeconds: 30,
   idleRecycleMs: 0,
   quotaCheckTtlMs: 0,
+  approvalForExpensive: false,
   env: {
     ELECTRON_RUN_AS_NODE: process.env.ELECTRON_RUN_AS_NODE || '1',
     FAKE_CODEX_STATE: statePath,
@@ -60,7 +61,7 @@ apply(ctx, {
 const exec = () => ({ agent: { id: 'sess-l2' }, signal: new AbortController().signal });
 
 try {
-  assert.deepEqual([...tools.keys()].sort(), ['codex_ask', 'codex_cancel', 'codex_history', 'codex_poll', 'codex_reset', 'codex_status']);
+  assert.deepEqual([...tools.keys()].sort(), ['codex_ask', 'codex_cancel', 'codex_history', 'codex_poll', 'codex_quota', 'codex_reset', 'codex_status']);
   assert.equal(promptSections.length, 1);
   assert.match(promptSections[0].text, /persistent/i);
 
@@ -87,6 +88,11 @@ try {
   assert.equal(status.thread.thread_id, first.thread_id);
   assert.equal(status.config.sandbox, 'workspace-write');
   assert.ok(status.tools.includes('codex_history'));
+
+  const quota = await tools.get('codex_quota').execute({}, exec());
+  assert.equal(quota.stale, false);
+  assert.equal(quota.quota.fiveHour.remainingPercent, 90);
+  assert.equal(quota.quota.weekly.remainingPercent, 95);
 
   const cancel = await tools.get('codex_cancel').execute({}, exec());
   assert.equal(cancel.status, 'idle');

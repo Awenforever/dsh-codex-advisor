@@ -261,9 +261,60 @@ function registerWebRoutes(ctx, manager, updateService, disposers, log) {
       });
     }
   });
-  register('/plugins/dsh-codex-advisor/snapshot', (request, response) => {
+  register('/plugins/dsh-codex-advisor/cancel', async (request, response) => {
+    if (!acceptApplyRequest(ctx, request, response)) return;
+    try {
+      const body = await readJsonBody(request);
+      const key = typeof body?.session_id === 'string' && body.session_id ? body.session_id : null;
+      if (!key) {
+        writeJson(response, 400, { ok: false, code: 'CODEX_BAD_ARGS', message: 'session_id is required' });
+        return;
+      }
+      writeJson(response, 200, { ok: true, ...(await manager.cancelForSession(key, {})) });
+    } catch (err) {
+      writeJson(response, 500, { ok: false, code: err?.code ?? 'CODEX_INTERNAL', message: err?.message ?? String(err) });
+    }
+  });
+  register('/plugins/dsh-codex-advisor/approval', async (request, response) => {
+    if (!acceptApplyRequest(ctx, request, response)) return;
+    try {
+      const body = await readJsonBody(request);
+      const id = typeof body?.id === 'string' ? body.id : '';
+      if (!id) {
+        writeJson(response, 400, { ok: false, code: 'CODEX_BAD_ARGS', message: 'id is required' });
+        return;
+      }
+      const result = manager.resolveApproval(id, body?.decision === 'reject' ? 'reject' : 'approve');
+      log('info', { event: 'approval-decision', id, decision: body?.decision === 'reject' ? 'reject' : 'approve', ok: result.ok });
+      writeJson(response, result.ok ? 200 : 409, result);
+    } catch (err) {
+      writeJson(response, 500, { ok: false, code: err?.code ?? 'CODEX_INTERNAL', message: err?.message ?? String(err) });
+    }
+  });
+  register('/plugins/dsh-codex-advisor/prefs', async (request, response) => {
+    if (!acceptApplyRequest(ctx, request, response)) return;
+    try {
+      const body = await readJsonBody(request);
+      const key = typeof body?.session_id === 'string' && body.session_id ? body.session_id : null;
+      if (!key) {
+        writeJson(response, 400, { ok: false, code: 'CODEX_BAD_ARGS', message: 'session_id is required' });
+        return;
+      }
+      const prefs = manager.setPrefs(key, {
+        model: typeof body?.model === 'string' ? body.model : undefined,
+        effort: typeof body?.effort === 'string' ? body.effort : undefined,
+      });
+      writeJson(response, 200, { ok: true, prefs });
+    } catch (err) {
+      writeJson(response, 500, { ok: false, code: err?.code ?? 'CODEX_INTERNAL', message: err?.message ?? String(err) });
+    }
+  });
+  // Opportunistic refresh: only queries when a Codex client is already up, so a
+  // card poll never spawns one.
+  register('/plugins/dsh-codex-advisor/snapshot', async (request, response) => {
     if (!acceptReadRequest(ctx, request, response)) return;
     try {
+      await manager.refreshQuota({ allowSpawn: false });
       writeJson(response, 200, manager.snapshot({}, routeExec(request)));
     } catch (err) {
       writeJson(response, 500, { ok: false, code: 'CODEX_INTERNAL', message: err?.message ?? String(err) });

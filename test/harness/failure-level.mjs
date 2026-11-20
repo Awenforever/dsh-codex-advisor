@@ -71,6 +71,7 @@ apply(ctx, {
   maxWaitSeconds: 30,
   idleRecycleMs: 0,
   quotaCheckTtlMs: 0,
+  approvalForExpensive: false,
   env: {
     ELECTRON_RUN_AS_NODE: process.env.ELECTRON_RUN_AS_NODE || '1',
     FAKE_CODEX_STATE: statePath,

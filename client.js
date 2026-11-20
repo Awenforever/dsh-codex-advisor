@@ -269,6 +269,18 @@ window.__ModuleLoader__.load({
       installDockInstalled: '已安装，正在重新加载…',
       installDockFailed: '安装失败',
       installDockManual: '手动安装说明',
+      quotaWeekly: '周额度',
+      quotaFiveHour: '5h 额度',
+      quotaUnknown: 'Codex 额度尚未上报',
+      approvalNeeded: '需要批准',
+      approvalApprove: '批准并发送',
+      approvalReject: '拒绝',
+      stop: '停止',
+      stopHint: '停止当前 Codex 轮次',
+      modelLabel: '模型',
+      effortLabel: '推理强度',
+      followAgent: '跟随',
+      prefsNewThread: '切换模型会在下一次提问时开启新线程',
       lastActivity: '上次活动',
       lastAnswer: '上次回答',
       justNow: '刚刚',
@@ -328,6 +340,18 @@ window.__ModuleLoader__.load({
       installDockInstalled: 'Installed; reloading…',
       installDockFailed: 'Install failed',
       installDockManual: 'Manual install',
+      quotaWeekly: 'Weekly',
+      quotaFiveHour: '5-hour',
+      quotaUnknown: 'Codex has not reported quota yet',
+      approvalNeeded: 'Approval needed',
+      approvalApprove: 'Approve and send',
+      approvalReject: 'Reject',
+      stop: 'Stop',
+      stopHint: 'Stop the running Codex turn',
+      modelLabel: 'Model',
+      effortLabel: 'Effort',
+      followAgent: 'Follow',
+      prefsNewThread: 'Switching the model starts a new thread on the next ask',
       lastActivity: 'Last activity',
       lastAnswer: 'Last answer',
       justNow: 'just now',
@@ -1127,7 +1151,7 @@ window.__ModuleLoader__.load({
     // optional dependency: without it the card stays in the left sidebar and
     // the brand switch offers to install it instead of pretending it can move.
     const PANEL_DOCK_ID = 'codex-advisor';
-    const PANEL_DOCK_SPEC = 'https://github.com/Awenforever/dsh-panel-dock/archive/refs/tags/v0.3.23.tar.gz';
+    const PANEL_DOCK_SPEC = 'https://github.com/Awenforever/dsh-panel-dock/archive/refs/tags/v0.4.0.tar.gz';
 
     function panelDockApi() {
       try {
@@ -1181,6 +1205,187 @@ window.__ModuleLoader__.load({
       h('rect', { x: bandX, y: 9.4, width: 2.9, height: 5.2, rx: 1.45, fill: 'currentColor' }));
     }
 
+    async function postJson(path, body, options = {}) {
+      const timeoutMs = options.timeoutMs ?? 15000;
+      const url = new URL(path, document.baseURI);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(url.pathname, {
+          method: 'POST',
+          cache: 'no-store',
+          headers: { 'content-type': 'application/json', accept: 'application/json' },
+          body: JSON.stringify(body || {}),
+          signal: controller.signal,
+        });
+        const value = await response.json().catch(() => ({}));
+        if (!response.ok || value.ok === false) {
+          throw new Error(value.message || value.code || ('HTTP ' + response.status));
+        }
+        return value;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    let quotaGradientSeq = 0;
+    const QUOTA_STOPS = Object.freeze({
+      weekly: ['#38bdf8', '#818cf8', '#c084fc'],
+      fiveHour: ['#fbbf24', '#fb7185', '#f472b6'],
+    });
+
+    function quotaFill(window) {
+      if (!window || window.known === false) return null;
+      const value = window.remainingPercent;
+      if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+      return Math.max(0, Math.min(100, value)) / 100;
+    }
+
+    function quotaTitleOf(quota, t) {
+      const weekly = quotaFill(quota && quota.weekly);
+      const fiveHour = quotaFill(quota && quota.fiveHour);
+      if (weekly === null && fiveHour === null) return t('quotaUnknown');
+      const parts = [];
+      if (weekly !== null) parts.push(t('quotaWeekly') + ' ' + Math.round(weekly * 100) + '%');
+      if (fiveHour !== null) parts.push(t('quotaFiveHour') + ' ' + Math.round(fiveHour * 100) + '%');
+      return parts.join(' · ');
+    }
+
+    function useElementSize(ref) {
+      const [size, setSize] = React.useState(null);
+      React.useEffect(function () {
+        const node = ref.current;
+        if (!node || typeof ResizeObserver !== 'function') return undefined;
+        function measure() {
+          const rect = node.getBoundingClientRect();
+          const width = Math.round(rect.width);
+          const height = Math.round(rect.height);
+          if (!(width > 0 && height > 0)) return;
+          setSize(function (previous) {
+            return previous && previous.width === width && previous.height === height
+              ? previous
+              : { width: width, height: height };
+          });
+        }
+        const observer = new ResizeObserver(measure);
+        observer.observe(node);
+        measure();
+        return function () { observer.disconnect(); };
+      }, [ref]);
+      return size;
+    }
+
+    // One rounded border, two arcs. Short clockwise arc (top centre -> bottom
+    // right) is the five-hour window; the long counter-clockwise arc to the same
+    // corner is the weekly one. The asymmetry is the semantics, so no legend.
+    function quotaArcPaths(width, height, radius, stroke) {
+      const inset = stroke / 2;
+      const right = width - stroke;
+      const bottom = height - stroke;
+      const r = Math.max(0, Math.min(radius, right / 2, bottom / 2));
+      const cx = width / 2;
+      const fiveHour = [
+        'M', cx, ' ', inset,
+        ' H', right - r,
+        ' A', r, ' ', r, ' 0 0 1 ', right, ' ', inset + r,
+        ' V', bottom - r,
+      ].join('');
+      const weekly = [
+        'M', cx, ' ', inset,
+        ' H', inset + r,
+        ' A', r, ' ', r, ' 0 0 0 ', inset, ' ', inset + r,
+        ' V', bottom - r,
+        ' A', r, ' ', r, ' 0 0 0 ', inset + r, ' ', bottom,
+        ' H', right - r,
+        ' A', r, ' ', r, ' 0 0 0 ', right, ' ', bottom - r,
+      ].join('');
+      return { fiveHour: fiveHour, weekly: weekly };
+    }
+
+    function QuotaBorder(props) {
+      const t = props.t;
+      const width = props.width;
+      const height = props.height;
+      const weekly = quotaFill(props.quota && props.quota.weekly);
+      const fiveHour = quotaFill(props.quota && props.quota.fiveHour);
+      const idsRef = React.useRef(null);
+      if (!idsRef.current) {
+        quotaGradientSeq += 1;
+        idsRef.current = {
+          weekly: 'qa-w-' + quotaGradientSeq,
+          fiveHour: 'qa-f-' + quotaGradientSeq,
+        };
+      }
+      const ids = idsRef.current;
+      const stroke = 1.5;
+      const paths = quotaArcPaths(width, height, 7, stroke);
+      function gradient(id, stops) {
+        return h('linearGradient', {
+          id: id,
+          gradientUnits: 'userSpaceOnUse',
+          x1: width / 2,
+          y1: 0,
+          x2: width,
+          y2: height,
+        }, stops.map(function (color, index) {
+          return h('stop', {
+            key: index,
+            offset: Math.round((index / (stops.length - 1)) * 100) + '%',
+            stopColor: color,
+          });
+        }));
+      }
+      const track = {
+        fill: 'none',
+        stroke: 'var(--dsw-alias-border-l1)',
+        strokeWidth: stroke,
+        pathLength: 1,
+        strokeDasharray: '1 2',
+      };
+      function fill(d, fraction, id) {
+        return h('path', {
+          d: d,
+          fill: 'none',
+          stroke: 'url(#' + id + ')',
+          strokeWidth: stroke,
+          strokeLinecap: 'round',
+          pathLength: 1,
+          strokeDasharray: fraction + ' 2',
+        });
+      }
+      return h('svg', {
+        'aria-hidden': true,
+        width: width,
+        height: height,
+        viewBox: '0 0 ' + width + ' ' + height,
+        style: { position: 'absolute', inset: 0, display: 'block', pointerEvents: 'none' },
+      },
+        h('defs', null,
+          gradient(ids.weekly, QUOTA_STOPS.weekly),
+          gradient(ids.fiveHour, QUOTA_STOPS.fiveHour)),
+        h('path', Object.assign({ d: paths.weekly }, track)),
+        h('path', Object.assign({ d: paths.fiveHour }, track)),
+        weekly === null ? null : fill(paths.weekly, weekly, ids.weekly),
+        fiveHour === null ? null : fill(paths.fiveHour, fiveHour, ids.fiveHour));
+    }
+
+    // The card answers box: the SVG border is the quota gauge.
+    function AnswerBox(props) {
+      const ref = React.useRef(null);
+      const size = useElementSize(ref);
+      return h('div', {
+        ref: ref,
+        title: quotaTitleOf(props.quota, props.t),
+        'data-codex-advisor-answer': '',
+        style: { position: 'relative', minWidth: 0, borderRadius: 7, background: props.background },
+      },
+        size ? h(QuotaBorder, { quota: props.quota, width: size.width, height: size.height, t: props.t }) : null,
+        h('div', { style: { position: 'relative', minWidth: 0, padding: '6px 8px 7px' } },
+          props.label,
+          props.text,
+          props.extra || null));
+    }
+
     function CodexCard(props) {
 
       const t = useT(props);
@@ -1221,12 +1426,15 @@ window.__ModuleLoader__.load({
         }
       }, [sessionId, active]);
 
+      // A pending approval is a live question for the user: poll fast enough
+      // that the √/× appears while the tool call is still waiting.
+      const pendingApprovalId = snapshot && snapshot.pending_approval ? snapshot.pending_approval.id : null;
       React.useEffect(() => {
         if (!active) return undefined;
         load();
-        const timer = setInterval(load, 30000);
+        const timer = setInterval(load, pendingApprovalId ? 5000 : 30000);
         return () => clearInterval(timer);
-      }, [load, active]);
+      }, [load, active, pendingApprovalId]);
 
       const checkUpdates = React.useCallback(async () => {
         const next = await updateState.check(true);
@@ -1359,6 +1567,101 @@ window.__ModuleLoader__.load({
         onMouseEnter: () => setCardHovered(true),
         onMouseLeave: () => { setCardHovered(false); setMarkHovered(false); },
       };
+
+      const pendingApproval = snapshot ? snapshot.pending_approval : null;
+      const decideApproval = function (id, decision) {
+        postJson('plugins/dsh-codex-advisor/approval', { id: id, decision: decision })
+          .then(function () { return load(); })
+          .catch(function (err) { setError(err && err.message ? err.message : String(err)); });
+      };
+      const approvalButtonStyle = {
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 16,
+        height: 16,
+        padding: 0,
+        margin: 0,
+        border: '1px solid var(--dsw-alias-border-l1)',
+        borderRadius: 4,
+        background: 'transparent',
+        color: 'var(--dsw-alias-label-primary)',
+        fontSize: 11,
+        lineHeight: '14px',
+        cursor: 'pointer',
+        flex: '0 0 auto',
+      };
+      const approvalRow = pendingApproval ? h('div', {
+        style: { display: 'flex', alignItems: 'center', gap: 5, marginTop: 5, minWidth: 0 },
+      },
+        h('span', {
+          title: pendingApproval.preview || '',
+          style: {
+            flex: '1 1 auto',
+            minWidth: 0,
+            color: THEME.warn,
+            fontSize: 9.5,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          },
+        }, t('approvalNeeded') + ' · ' + pendingApproval.model + (pendingApproval.effort ? ' · ' + pendingApproval.effort : '')),
+        h('button', {
+          type: 'button',
+          title: t('approvalApprove'),
+          'data-codex-advisor-approve': '',
+          style: approvalButtonStyle,
+          onClick: function () { decideApproval(pendingApproval.id, 'approve'); },
+        }, '√'),
+        h('button', {
+          type: 'button',
+          title: t('approvalReject'),
+          'data-codex-advisor-reject': '',
+          style: approvalButtonStyle,
+          onClick: function () { decideApproval(pendingApproval.id, 'reject'); },
+        }, '×')) : null;
+
+      const prefsModel = (snapshot && snapshot.prefs && snapshot.prefs.model) || '';
+      const prefsEffort = (snapshot && snapshot.prefs && snapshot.prefs.effort) || '';
+      const savePrefs = function (kind, value) {
+        if (!sessionId) return;
+        const body = { session_id: sessionId };
+        body[kind] = value;
+        postJson('plugins/dsh-codex-advisor/prefs', body)
+          .then(function () { return load(); })
+          .catch(function (err) { setError(err && err.message ? err.message : String(err)); });
+      };
+      const prefsSelectStyle = {
+        fontSize: 9.5,
+        height: 18,
+        padding: '0 2px',
+        border: '1px solid var(--dsw-alias-border-l1)',
+        borderRadius: 5,
+        background: 'transparent',
+        color: 'var(--dsw-alias-label-secondary)',
+        maxWidth: 84,
+        cursor: 'pointer',
+      };
+      const prefsRow = h('div', {
+        'data-codex-advisor-prefs': '',
+        style: { display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 },
+      },
+        h('select', {
+          value: prefsModel,
+          title: t('prefsNewThread'),
+          style: prefsSelectStyle,
+          onChange: function (event) { savePrefs('model', event.target.value); },
+        }, [['', t('followAgent')], ['astra', 'astra'], ['sol', 'sol'], ['terra', 'terra'], ['luna', 'luna']].map(function (entry) {
+          return h('option', { key: entry[0] || 'auto', value: entry[0] }, entry[1]);
+        })),
+        h('select', {
+          value: prefsEffort,
+          title: t('effortLabel'),
+          style: prefsSelectStyle,
+          onChange: function (event) { savePrefs('effort', event.target.value); },
+        }, [['', t('followAgent')], ['low', 'low'], ['medium', 'medium'], ['high', 'high'], ['xhigh', 'xhigh'], ['max', 'max'], ['ultra', 'ultra']].map(function (entry) {
+          return h('option', { key: entry[0] || 'auto', value: entry[0] }, entry[1]);
+        })));
 
       // dsh-panel-dock passes its own props (including a geometry style) and
       // owns the panel slot; spread them onto the single root and keep style
@@ -1513,16 +1816,19 @@ window.__ModuleLoader__.load({
           },
         }, lastAsk),
       ) : null,
-      h('div', {
-        style: {
-          minWidth: 0,
-          padding: '6px 8px 7px',
-          borderRadius: 7,
-          background: mixColor('var(--dsw-alias-label-primary)', 6, 'var(--dsw-alias-bg-layer-1)'),
-        },
-      },
-        h('div', { style: { color: failed ? THEME.error : 'var(--dsw-alias-label-secondary)', fontSize: 9.5, fontWeight: 600, marginBottom: 2 } }, failed ? 'Failure' : 'Codex'),
-        h('div', {
+      h(AnswerBox, {
+        quota: snapshot && snapshot.quota,
+        t: t,
+        background: mixColor('var(--dsw-alias-label-primary)', 6, 'var(--dsw-alias-bg-layer-1)'),
+        label: h('div', {
+          style: {
+            color: failed ? THEME.error : 'var(--dsw-alias-label-secondary)',
+            fontSize: 9.5,
+            fontWeight: 600,
+            marginBottom: 2,
+          },
+        }, failed ? 'Failure' : 'Codex'),
+        text: h('div', {
           style: {
             color: answerColor,
             fontSize: 11,
@@ -1535,7 +1841,9 @@ window.__ModuleLoader__.load({
             wordBreak: 'break-word',
           },
         }, answerText || t('cardNoThread')),
-      ),
+        extra: approvalRow,
+      }),
+      prefsRow,
       (activity || error || loading) ? h('div', {
         style: {
           display: 'flex',
@@ -1954,6 +2262,37 @@ window.__ModuleLoader__.load({
       const version = data?.source?.version ?? updateState.value?.currentVersion ?? null;
       const lastAt = turns.length > 0 ? turns[turns.length - 1].created_at : null;
 
+      const stopTurn = React.useCallback(async () => {
+        if (!sessionId) return;
+        try {
+          await postJson('plugins/dsh-codex-advisor/cancel', { session_id: sessionId }, { timeoutMs: 20000 });
+          await load();
+        } catch (err) {
+          setError(err && err.message ? err.message : String(err));
+        }
+      }, [sessionId, load]);
+
+      const decideApproval = React.useCallback(async (id, decision) => {
+        try {
+          await postJson('plugins/dsh-codex-advisor/approval', { id: id, decision: decision });
+          await load();
+        } catch (err) {
+          setError(err && err.message ? err.message : String(err));
+        }
+      }, [load]);
+
+      const savePrefs = React.useCallback(async (kind, value) => {
+        if (!sessionId) return;
+        const body = { session_id: sessionId };
+        body[kind] = value;
+        try {
+          await postJson('plugins/dsh-codex-advisor/prefs', body);
+          await load();
+        } catch (err) {
+          setError(err && err.message ? err.message : String(err));
+        }
+      }, [sessionId, load]);
+
       const buttonStyle = {
         border: '1px solid var(--dsw-alias-border-l1)',
         background: 'transparent',
@@ -1964,6 +2303,19 @@ window.__ModuleLoader__.load({
         cursor: loading ? 'default' : 'pointer',
         opacity: loading ? 0.6 : 1,
       };
+
+      const selectStyle = {
+        fontSize: 12,
+        height: 28,
+        padding: '0 6px',
+        border: '1px solid var(--dsw-alias-border-l1)',
+        borderRadius: 8,
+        background: 'transparent',
+        color: 'var(--dsw-alias-label-primary)',
+        cursor: 'pointer',
+      };
+      const activeTurn = data && data.active_turn ? data.active_turn : null;
+      const pendingApproval = data && data.pending_approval ? data.pending_approval : null;
 
       return h('div', {
         style: {
@@ -1999,7 +2351,31 @@ window.__ModuleLoader__.load({
               lastAt ? h('span', { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 11.5, whiteSpace: 'nowrap' } }, formatWhen(lastAt, t)) : null,
             ),
           ),
-          h('button', { type: 'button', style: { marginLeft: 'auto', ...buttonStyle }, onClick: load, disabled: loading }, t('refresh')),
+          h('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+            h('select', {
+              value: (data && data.prefs && data.prefs.model) || '',
+              title: t('prefsNewThread'),
+              style: selectStyle,
+              onChange: function (event) { savePrefs('model', event.target.value); },
+            }, [['', t('followAgent')], ['astra', 'astra'], ['sol', 'sol'], ['terra', 'terra'], ['luna', 'luna']].map(function (entry) {
+              return h('option', { key: entry[0] || 'auto', value: entry[0] }, entry[1]);
+            })),
+            h('select', {
+              value: (data && data.prefs && data.prefs.effort) || '',
+              title: t('effortLabel'),
+              style: selectStyle,
+              onChange: function (event) { savePrefs('effort', event.target.value); },
+            }, [['', t('followAgent')], ['low', 'low'], ['medium', 'medium'], ['high', 'high'], ['xhigh', 'xhigh'], ['max', 'max'], ['ultra', 'ultra']].map(function (entry) {
+              return h('option', { key: entry[0] || 'auto', value: entry[0] }, entry[1]);
+            })),
+            activeTurn ? h('button', {
+              type: 'button',
+              'data-codex-advisor-stop': '',
+              title: t('stopHint'),
+              style: buttonStyle,
+              onClick: stopTurn,
+            }, t('stop')) : null,
+            h('button', { type: 'button', style: buttonStyle, onClick: load, disabled: loading }, t('refresh'))),
         ),
         error ? h('div', {
           style: {
@@ -2012,6 +2388,26 @@ window.__ModuleLoader__.load({
             lineHeight: 1.55,
           },
         }, `${t('error')}: ${error}`) : null,
+        pendingApproval ? h('div', {
+          'data-codex-advisor-approval': '',
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'wrap',
+            border: '1px solid ' + mixColor(THEME.warn, 40, 'var(--dsw-alias-border-l1)'),
+            background: mixColor(THEME.warn, 10, 'var(--dsw-alias-bg-layer-1)'),
+            borderRadius: 10,
+            padding: '10px 12px',
+            marginBottom: 14,
+            fontSize: 12,
+          },
+        },
+          h('div', { style: { minWidth: 0, flex: '1 1 auto' } },
+            h('div', { style: { fontWeight: 600, color: 'var(--dsw-alias-label-primary)' } }, t('approvalNeeded') + ' · ' + pendingApproval.model + (pendingApproval.effort ? ' · ' + pendingApproval.effort : '')),
+            h('div', { style: { marginTop: 3, color: 'var(--dsw-alias-label-secondary)', lineHeight: 1.5 } }, pendingApproval.preview || '')),
+          h('button', { type: 'button', style: buttonStyle, onClick: function () { decideApproval(pendingApproval.id, 'reject'); } }, '× ' + t('approvalReject')),
+          h('button', { type: 'button', style: buttonStyle, onClick: function () { decideApproval(pendingApproval.id, 'approve'); } }, '√ ' + t('approvalApprove'))) : null,
         !error && !sessionId ? h('div', {
           style: {
             border: '1px solid var(--dsw-alias-border-l1)',

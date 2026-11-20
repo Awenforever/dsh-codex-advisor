@@ -78,6 +78,21 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   // overlays (update modal, install modal), which are not panels.
   assert.equal((source.match(/position: 'fixed'/g) ?? []).length, 2);
   assert.doesNotMatch(source, /useFallbackBox|fallbackBox/);
+  // Quota is drawn as the answer box border, not a separate bar.
+  assert.match(source, /function QuotaBorder/);
+  assert.match(source, /function quotaArcPaths/);
+  assert.match(source, /function AnswerBox/);
+  assert.match(source, /data-codex-advisor-answer/);
+  assert.match(source, /QUOTA_STOPS/);
+  assert.match(source, /pathLength: 1/);
+  // Approval, stop, and model/effort controls.
+  assert.match(source, /data-codex-advisor-approve/);
+  assert.match(source, /data-codex-advisor-reject/);
+  assert.match(source, /data-codex-advisor-stop/);
+  assert.match(source, /data-codex-advisor-prefs/);
+  assert.match(source, /plugins\/dsh-codex-advisor\/approval/);
+  assert.match(source, /plugins\/dsh-codex-advisor\/cancel/);
+  assert.match(source, /plugins\/dsh-codex-advisor\/prefs/);
   assert.match(source, /data-codex-advisor-position-toggle/);
   // The brand mark itself is the switch: no extra header control, and the
   // trailing status/model cluster keeps its space.

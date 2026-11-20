@@ -21,6 +21,7 @@ function makeManager({ mode = 'normal', dir, statePath, defaultWaitSeconds = 5, 
     maxWaitSeconds,
     idleRecycleMs: 0,
     quotaCheckTtlMs: 0,
+    approvalForExpensive: false,
     env: {
       FAKE_CODEX_STATE: statePath,
       FAKE_CODEX_MODE: mode,
