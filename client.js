@@ -1230,8 +1230,8 @@ window.__ModuleLoader__.load({
 
     let quotaGradientSeq = 0;
     const QUOTA_STOPS = Object.freeze({
-      weekly: ['#38bdf8', '#818cf8', '#c084fc'],
-      fiveHour: ['#fbbf24', '#fb7185', '#f472b6'],
+      weekly: ['#22d3ee', '#3b82f6', '#8b5cf6', '#a855f7'],
+      fiveHour: ['#fbbf24', '#fb923c', '#f43f5e'],
     });
 
     function quotaFill(window) {
@@ -1278,6 +1278,10 @@ window.__ModuleLoader__.load({
     // One rounded border, two arcs. Short clockwise arc (top centre -> bottom
     // right) is the five-hour window; the long counter-clockwise arc to the same
     // corner is the weekly one. The asymmetry is the semantics, so no legend.
+    function cornerRadius(width, height, radius, stroke) {
+      return Math.max(0, Math.min(radius, (width - stroke) / 2, (height - stroke) / 2));
+    }
+
     function quotaArcPaths(width, height, radius, stroke) {
       const inset = stroke / 2;
       const right = width - stroke;
@@ -1319,13 +1323,13 @@ window.__ModuleLoader__.load({
       const ids = idsRef.current;
       const stroke = 1.5;
       const paths = quotaArcPaths(width, height, 7, stroke);
-      function gradient(id, stops) {
+      function gradient(id, stops, x2) {
         return h('linearGradient', {
           id: id,
           gradientUnits: 'userSpaceOnUse',
           x1: width / 2,
           y1: 0,
-          x2: width,
+          x2: x2,
           y2: height,
         }, stops.map(function (color, index) {
           return h('stop', {
@@ -1337,10 +1341,10 @@ window.__ModuleLoader__.load({
       }
       const track = {
         fill: 'none',
-        stroke: 'var(--dsw-alias-border-l1)',
+        stroke: mixColor('var(--dsw-alias-label-secondary)', 30, 'transparent'),
         strokeWidth: stroke,
         pathLength: 1,
-        strokeDasharray: '1 2',
+        strokeDasharray: '0.014 0.014',
       };
       function fill(d, fraction, id) {
         return h('path', {
@@ -1361,12 +1365,18 @@ window.__ModuleLoader__.load({
         style: { position: 'absolute', inset: 0, display: 'block', pointerEvents: 'none' },
       },
         h('defs', null,
-          gradient(ids.weekly, QUOTA_STOPS.weekly),
-          gradient(ids.fiveHour, QUOTA_STOPS.fiveHour)),
+          gradient(ids.weekly, QUOTA_STOPS.weekly, 0),
+          gradient(ids.fiveHour, QUOTA_STOPS.fiveHour, width)),
         h('path', Object.assign({ d: paths.weekly }, track)),
         h('path', Object.assign({ d: paths.fiveHour }, track)),
         weekly === null ? null : fill(paths.weekly, weekly, ids.weekly),
-        fiveHour === null ? null : fill(paths.fiveHour, fiveHour, ids.fiveHour));
+        fiveHour === null ? null : fill(paths.fiveHour, fiveHour, ids.fiveHour),
+        h('circle', {
+          cx: width - stroke,
+          cy: height - stroke - cornerRadius(width, height, 7, stroke),
+          r: 1.6,
+          fill: mixColor('var(--dsw-alias-label-secondary)', 45, 'transparent'),
+        }));
     }
 
     const PREFS_MODELS = ['', 'astra', 'sol', 'terra', 'luna'];
@@ -1385,29 +1395,26 @@ window.__ModuleLoader__.load({
       const chip = h('button', {
         type: 'button',
         'data-codex-advisor-prefs': '',
-        title: t('prefsNewThread'),
+        title: (model || effort) ? shownModel + ' · ' + shownEffort : t('prefsNewThread'),
+        'aria-label': t('prefsNewThread'),
         onClick: function () { opts.onToggle(!open); },
         style: {
           display: 'inline-flex',
           alignItems: 'center',
-          gap: 2,
+          justifyContent: 'center',
           marginLeft: 'auto',
-          padding: 0,
+          padding: '1px 3px',
           border: 0,
-          background: 'transparent',
-          color: (model || effort) ? 'var(--dsw-alias-link)' : 'var(--dsw-alias-label-secondary)',
-          fontSize: 9.5,
-          fontWeight: 500,
-          lineHeight: '13px',
-          letterSpacing: '0.01em',
-          maxWidth: 130,
-          minWidth: 0,
+          borderRadius: 4,
+          background: (model || effort) ? mixColor('var(--dsw-alias-link)', 12, 'transparent') : 'transparent',
+          color: 'var(--dsw-alias-label-secondary)',
+          lineHeight: 0,
+          opacity: open ? 1 : 0.85,
           flex: '0 0 auto',
           cursor: 'pointer',
         },
       },
-        h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, (model || effort) ? shownModel + ' · ' + shownEffort : t('followAgent')),
-        h('span', { style: { fontSize: 7, opacity: 0.7 } }, open ? '▴' : '▾'));
+        h('span', { 'aria-hidden': true, style: { fontSize: 11, lineHeight: '11px' } }, '✨'));
 
       function pill(kind, value, label, current) {
         const active = value === current;
