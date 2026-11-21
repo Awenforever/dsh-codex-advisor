@@ -84,6 +84,9 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   assert.match(source, /function AnswerBox/);
   assert.match(source, /data-codex-advisor-answer/);
   assert.match(source, /QUOTA_STOPS/);
+  // The gauge has a 300-weight ramp for the dark theme and follows live switches.
+  assert.match(source, /data-ds-dark-theme/);
+  assert.match(source, /function useDarkTheme/);
   assert.match(source, /pathLength: 1/);
   // Approval, stop, and model/effort controls.
   assert.match(source, /data-codex-advisor-approve/);

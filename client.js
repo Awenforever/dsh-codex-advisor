@@ -1230,9 +1230,38 @@ window.__ModuleLoader__.load({
 
     let quotaGradientSeq = 0;
     const QUOTA_STOPS = Object.freeze({
-      weekly: ['#22d3ee', '#3b82f6', '#8b5cf6', '#a855f7'],
-      fiveHour: ['#fbbf24', '#fb923c', '#f43f5e'],
+      light: {
+        weekly: ['#22d3ee', '#3b82f6', '#8b5cf6', '#a855f7'],
+        fiveHour: ['#fbbf24', '#fb923c', '#f43f5e'],
+      },
+      dark: {
+        weekly: ['#67e8f9', '#60a5fa', '#a78bfa', '#c084fc'],
+        fiveHour: ['#fcd34d', '#fdba74', '#fb7185'],
+      },
     });
+
+    // DSH marks the dark theme on <body>; watch it so a live theme switch also
+    // repaints the gauge.
+    function useDarkTheme() {
+      const read = function () {
+        try {
+          return typeof document !== 'undefined' && document.body
+            ? document.body.hasAttribute('data-ds-dark-theme')
+            : false;
+        } catch {
+          return false;
+        }
+      };
+      const [dark, setDark] = React.useState(read);
+      React.useEffect(function () {
+        if (typeof MutationObserver !== 'function' || typeof document === 'undefined' || !document.body) return undefined;
+        const observer = new MutationObserver(function () { setDark(read()); });
+        observer.observe(document.body, { attributes: true, attributeFilter: ['data-ds-dark-theme'] });
+        setDark(read());
+        return function () { observer.disconnect(); };
+      }, []);
+      return dark;
+    }
 
     function quotaFill(window) {
       if (!window || window.known === false) return null;
@@ -1317,6 +1346,7 @@ window.__ModuleLoader__.load({
         };
       }
       if (weekly === null && fiveHour === null) return null;
+      const palette = (props.dark ? QUOTA_STOPS.dark : QUOTA_STOPS.light);
       const ids = idsRef.current;
       const stroke = 1.5;
       const paths = quotaArcPaths(width, height, 7, stroke);
@@ -1355,8 +1385,8 @@ window.__ModuleLoader__.load({
         style: { position: 'absolute', inset: 0, display: 'block', pointerEvents: 'none' },
       },
         h('defs', null,
-          gradient(ids.weekly, QUOTA_STOPS.weekly, width / 2),
-          gradient(ids.fiveHour, QUOTA_STOPS.fiveHour, width)),
+          gradient(ids.weekly, palette.weekly, width / 2),
+          gradient(ids.fiveHour, palette.fiveHour, width)),
         weekly === null ? null : fill(paths.weekly, weekly, ids.weekly),
         fiveHour === null ? null : fill(paths.fiveHour, fiveHour, ids.fiveHour));
     }
@@ -1444,13 +1474,14 @@ window.__ModuleLoader__.load({
     function AnswerBox(props) {
       const ref = React.useRef(null);
       const size = useElementSize(ref);
+      const dark = useDarkTheme();
       return h('div', {
         ref: ref,
         title: quotaTitleOf(props.quota, props.t),
         'data-codex-advisor-answer': '',
         style: { position: 'relative', minWidth: 0, borderRadius: 7, background: props.background },
       },
-        size ? h(QuotaBorder, { quota: props.quota, width: size.width, height: size.height, t: props.t }) : null,
+        size ? h(QuotaBorder, { quota: props.quota, width: size.width, height: size.height, t: props.t, dark: dark }) : null,
         h('div', { style: { position: 'relative', minWidth: 0, padding: '6px 8px 7px' } },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 } },
             props.label,
