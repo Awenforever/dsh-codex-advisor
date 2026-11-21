@@ -314,7 +314,7 @@ function registerWebRoutes(ctx, manager, updateService, disposers, log) {
   register('/plugins/dsh-codex-advisor/snapshot', async (request, response) => {
     if (!acceptReadRequest(ctx, request, response)) return;
     try {
-      await manager.refreshQuota({ allowSpawn: false });
+      await manager.refreshQuota({ allowSpawn: true });
       writeJson(response, 200, manager.snapshot({}, routeExec(request)));
     } catch (err) {
       writeJson(response, 500, { ok: false, code: 'CODEX_INTERNAL', message: err?.message ?? String(err) });

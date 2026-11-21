@@ -1369,6 +1369,88 @@ window.__ModuleLoader__.load({
         fiveHour === null ? null : fill(paths.fiveHour, fiveHour, ids.fiveHour));
     }
 
+    const PREFS_MODELS = ['', 'astra', 'sol', 'terra', 'luna'];
+    const PREFS_EFFORTS = ['', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
+
+    // One compact chip in the answer-box header. The menu opens inline rather
+    // than as a popover: panel-dock clips its cell, so an absolutely positioned
+    // menu would be cut off at the card edge.
+    function renderPrefsControls(opts) {
+      const t = opts.t;
+      const open = opts.open === true;
+      const model = opts.model || '';
+      const effort = opts.effort || '';
+      const shownModel = model || opts.effectiveModel || t('followAgent');
+      const shownEffort = effort || opts.effectiveEffort || t('followAgent');
+      const chip = h('button', {
+        type: 'button',
+        'data-codex-advisor-prefs': '',
+        title: t('prefsNewThread'),
+        onClick: function () { opts.onToggle(!open); },
+        style: {
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 3,
+          marginLeft: 'auto',
+          padding: '0 4px',
+          height: 15,
+          maxWidth: 130,
+          minWidth: 0,
+          flex: '0 0 auto',
+          border: '1px solid var(--dsw-alias-border-l1)',
+          borderRadius: 4,
+          background: 'transparent',
+          color: 'var(--dsw-alias-label-secondary)',
+          fontSize: 9,
+          lineHeight: '13px',
+          cursor: 'pointer',
+        },
+      },
+        h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, shownModel + ' · ' + shownEffort),
+        h('span', { style: { fontSize: 7, opacity: 0.7 } }, open ? '▴' : '▾'));
+
+      function pill(kind, value, label, current) {
+        const active = value === current;
+        return h('button', {
+          key: kind + ':' + (value || 'auto'),
+          type: 'button',
+          onClick: function () { opts.onPick(kind, value); },
+          style: {
+            padding: '1px 5px',
+            border: '1px solid ' + (active ? 'var(--dsw-alias-link)' : 'var(--dsw-alias-border-l1)'),
+            borderRadius: 4,
+            background: active ? mixColor('var(--dsw-alias-link)', 14, 'transparent') : 'transparent',
+            color: active ? 'var(--dsw-alias-link)' : 'var(--dsw-alias-label-secondary)',
+            fontSize: 9,
+            lineHeight: '13px',
+            cursor: 'pointer',
+          },
+        }, label);
+      }
+      function row(kind, title, values, current) {
+        return h('div', { style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', minWidth: 0 } },
+          h('span', { style: { width: 30, flex: '0 0 30px', color: 'var(--dsw-alias-label-secondary)', fontSize: 9 } }, title),
+          values.map(function (value) { return pill(kind, value, value || t('followAgent'), current); }));
+      }
+      const menu = open ? h('div', {
+        'data-codex-advisor-prefs-menu': '',
+        style: {
+          position: 'relative',
+          marginTop: 3,
+          padding: '4px 5px',
+          border: '1px solid var(--dsw-alias-border-l1)',
+          borderRadius: 6,
+          background: 'var(--dsw-alias-bg-layer-1)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 3,
+        },
+      },
+        row('model', t('modelLabel'), PREFS_MODELS, model),
+        row('effort', t('effortLabel'), PREFS_EFFORTS, effort)) : null;
+      return { chip: chip, menu: menu };
+    }
+
     // The card answers box: the SVG border is the quota gauge.
     function AnswerBox(props) {
       const ref = React.useRef(null);
@@ -1381,7 +1463,10 @@ window.__ModuleLoader__.load({
       },
         size ? h(QuotaBorder, { quota: props.quota, width: size.width, height: size.height, t: props.t }) : null,
         h('div', { style: { position: 'relative', minWidth: 0, padding: '6px 8px 7px' } },
-          props.label,
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 } },
+            props.label,
+            props.controls || null),
+          props.menu || null,
           props.text,
           props.extra || null));
     }
@@ -1398,6 +1483,7 @@ window.__ModuleLoader__.load({
       const [cardHovered, setCardHovered] = React.useState(false);
       const [markHovered, setMarkHovered] = React.useState(false);
       const [installOpen, setInstallOpen] = React.useState(false);
+      const [prefsOpen, setPrefsOpen] = React.useState(false);
       const sessionId = useActiveSession();
       const updateState = useUpdate();
       const [updateOpen, setUpdateOpen] = React.useState(false);
@@ -1631,38 +1717,16 @@ window.__ModuleLoader__.load({
           .then(function () { return load(); })
           .catch(function (err) { setError(err && err.message ? err.message : String(err)); });
       };
-      const prefsSelectStyle = {
-        fontSize: 9.5,
-        height: 18,
-        padding: '0 2px',
-        border: '1px solid var(--dsw-alias-border-l1)',
-        borderRadius: 5,
-        background: 'transparent',
-        color: 'var(--dsw-alias-label-secondary)',
-        maxWidth: 84,
-        cursor: 'pointer',
-      };
-      const prefsRow = h('div', {
-        'data-codex-advisor-prefs': '',
-        style: { display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 },
-      },
-        h('select', {
-          value: prefsModel,
-          title: t('prefsNewThread'),
-          style: prefsSelectStyle,
-          onChange: function (event) { savePrefs('model', event.target.value); },
-        }, [['', t('followAgent')], ['astra', 'astra'], ['sol', 'sol'], ['terra', 'terra'], ['luna', 'luna']].map(function (entry) {
-          return h('option', { key: entry[0] || 'auto', value: entry[0] }, entry[1]);
-        })),
-        h('select', {
-          value: prefsEffort,
-          title: t('effortLabel'),
-          style: prefsSelectStyle,
-          onChange: function (event) { savePrefs('effort', event.target.value); },
-        }, [['', t('followAgent')], ['low', 'low'], ['medium', 'medium'], ['high', 'high'], ['xhigh', 'xhigh'], ['max', 'max'], ['ultra', 'ultra']].map(function (entry) {
-          return h('option', { key: entry[0] || 'auto', value: entry[0] }, entry[1]);
-        })));
-
+      const prefs = renderPrefsControls({
+        t: t,
+        open: prefsOpen,
+        model: prefsModel,
+        effort: prefsEffort,
+        effectiveModel: snapshot && snapshot.model ? snapshot.model : '',
+        effectiveEffort: snapshot && snapshot.effort ? snapshot.effort : '',
+        onToggle: setPrefsOpen,
+        onPick: function (kind, value) { setPrefsOpen(false); savePrefs(kind, value); },
+      });
       // dsh-panel-dock passes its own props (including a geometry style) and
       // owns the panel slot; spread them onto the single root and keep style
       // last so the dock's width/flex wins. The fallback path positions itself
@@ -1841,9 +1905,10 @@ window.__ModuleLoader__.load({
             wordBreak: 'break-word',
           },
         }, answerText || t('cardNoThread')),
+        controls: prefs.chip,
+        menu: prefs.menu,
         extra: approvalRow,
       }),
-      prefsRow,
       (activity || error || loading) ? h('div', {
         style: {
           display: 'flex',
@@ -2304,18 +2369,19 @@ window.__ModuleLoader__.load({
         opacity: loading ? 0.6 : 1,
       };
 
-      const selectStyle = {
-        fontSize: 12,
-        height: 28,
-        padding: '0 6px',
-        border: '1px solid var(--dsw-alias-border-l1)',
-        borderRadius: 8,
-        background: 'transparent',
-        color: 'var(--dsw-alias-label-primary)',
-        cursor: 'pointer',
-      };
+      const [prefsOpen, setPrefsOpen] = React.useState(false);
       const activeTurn = data && data.active_turn ? data.active_turn : null;
       const pendingApproval = data && data.pending_approval ? data.pending_approval : null;
+      const prefs = renderPrefsControls({
+        t: t,
+        open: prefsOpen,
+        model: (data && data.prefs && data.prefs.model) || '',
+        effort: (data && data.prefs && data.prefs.effort) || '',
+        effectiveModel: (currentThread && currentThread.model) || (data && data.model) || '',
+        effectiveEffort: (data && data.effort) || '',
+        onToggle: setPrefsOpen,
+        onPick: function (kind, value) { setPrefsOpen(false); savePrefs(kind, value); },
+      });
 
       return h('div', {
         style: {
@@ -2352,22 +2418,7 @@ window.__ModuleLoader__.load({
             ),
           ),
           h('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
-            h('select', {
-              value: (data && data.prefs && data.prefs.model) || '',
-              title: t('prefsNewThread'),
-              style: selectStyle,
-              onChange: function (event) { savePrefs('model', event.target.value); },
-            }, [['', t('followAgent')], ['astra', 'astra'], ['sol', 'sol'], ['terra', 'terra'], ['luna', 'luna']].map(function (entry) {
-              return h('option', { key: entry[0] || 'auto', value: entry[0] }, entry[1]);
-            })),
-            h('select', {
-              value: (data && data.prefs && data.prefs.effort) || '',
-              title: t('effortLabel'),
-              style: selectStyle,
-              onChange: function (event) { savePrefs('effort', event.target.value); },
-            }, [['', t('followAgent')], ['low', 'low'], ['medium', 'medium'], ['high', 'high'], ['xhigh', 'xhigh'], ['max', 'max'], ['ultra', 'ultra']].map(function (entry) {
-              return h('option', { key: entry[0] || 'auto', value: entry[0] }, entry[1]);
-            })),
+            prefs.chip,
             activeTurn ? h('button', {
               type: 'button',
               'data-codex-advisor-stop': '',
@@ -2377,6 +2428,7 @@ window.__ModuleLoader__.load({
             }, t('stop')) : null,
             h('button', { type: 'button', style: buttonStyle, onClick: load, disabled: loading }, t('refresh'))),
         ),
+        prefs.menu,
         error ? h('div', {
           style: {
             border: `1px solid ${mixColor(THEME.error, 32, 'var(--dsw-alias-border-l1)')}`,
@@ -2542,6 +2594,9 @@ window.__ModuleLoader__.load({
             DockMark,
             AdvisorPanel,
             LeftFallback,
+            quotaArcPaths,
+            quotaFill,
+            renderPrefsControls,
             CHATGPT_MARK_PATH,
             readDockSide,
             panelDockApi,

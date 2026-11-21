@@ -93,6 +93,10 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   assert.match(source, /plugins\/dsh-codex-advisor\/approval/);
   assert.match(source, /plugins\/dsh-codex-advisor\/cancel/);
   assert.match(source, /plugins\/dsh-codex-advisor\/prefs/);
+  // The selectors are a compact chip + inline menu, not native selects.
+  assert.match(source, /renderPrefsControls/);
+  assert.match(source, /data-codex-advisor-prefs-menu/);
+  assert.doesNotMatch(source, /prefsSelectStyle/);
   assert.match(source, /data-codex-advisor-position-toggle/);
   // The brand mark itself is the switch: no extra header control, and the
   // trailing status/model cluster keeps its space.
@@ -162,6 +166,16 @@ test('client registers, renders, and resolves split-pane session focus', () => {
 
   const hooks = global.window.__codexAdvisorTest;
   assert.ok(hooks);
+  const arcs = hooks.quotaArcPaths(240, 64, 7, 1.5);
+  // Both arcs start at the top-edge centre; the short one turns once, the long
+  // one turns three times before they meet at the bottom-right corner.
+  assert.ok(arcs.fiveHour.startsWith('M120 0.75'));
+  assert.ok(arcs.weekly.startsWith('M120 0.75'));
+  assert.equal((arcs.fiveHour.match(/A/g) || []).length, 1);
+  assert.equal((arcs.weekly.match(/A/g) || []).length, 3);
+  assert.equal(hooks.quotaFill({ known: true, remainingPercent: 62 }), 0.62);
+  assert.equal(hooks.quotaFill({ known: false, remainingPercent: 62 }), null);
+  assert.equal(hooks.quotaFill({ known: true, remainingPercent: 140 }), 1);
 
   const fakeElement = (name, parent, attrs = {}) => {
     const node = {

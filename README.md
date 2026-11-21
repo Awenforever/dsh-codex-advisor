@@ -4,14 +4,14 @@ A persistent **Codex advisor** for [DeepSeek Harness](https://github.com/deepsee
 
 One DSH session can keep several labeled Codex threads. Continue a thread for the same objective, or start another for a different aspect or model class. Codex runs through the official `codex app-server` protocol under your existing ChatGPT/Codex login, so it uses your Codex quota rather than a separate API key.
 
-> **Current release: 0.11.0.** Tested with DSH Desktop `0.2.1-rc.5` on Windows 11 and Codex CLI `0.166.0-alpha.5.1`. See [Compatibility](#compatibility).
+> **Current release: 0.11.1.** Tested with DSH Desktop `0.2.1-rc.5` on Windows 11 and Codex CLI `0.166.0-alpha.5.1`. See [Compatibility](#compatibility).
 
 ## What you get
 
 - Seven native tools: `codex_ask`, `codex_poll`, `codex_cancel`, `codex_status`, `codex_quota`, `codex_history`, `codex_reset`.
 - **Quota on the card border**: the Codex answer box border is the gauge. Both arcs start at the top edge centre and end at the bottom-right corner: the short clockwise arc is the five-hour window, the long counter-clockwise arc is the weekly one. Each side has its own smooth gradient; the lengths differ because the windows differ, not because the colours mean anything. Hover it for the percentages.
 - **Expensive asks need a click**: everything above luna (terra, sol, astra) waits for you to press √ on the card or panel before a single token is spent; × rejects it. Cheap luna asks run straight through.
-- **Model and effort are yours**: two selectors on the card and in the panel override the agent's routing. Changing the model starts a new thread on the next ask (Codex pins one model per thread); effort applies to every ask.
+- **Model and effort are yours**: one compact chip in the answer-box header (card and panel) shows the model and effort in effect and opens a two-row picker. Changing the model starts a new thread on the next ask (Codex pins one model per thread); effort applies to every ask.
 - A **Codex trail** tab with thread rail, Markdown Ask/Answer blocks, activity, and a per-turn `model · effort` footnote.
 - A compact **Codex Advisor** card with the active thread, latest ask/answer, status light, and model/effort. Its mark is filled and lightly stroked: this asset is a thin ribbon outline, and stroke-only rendering at sidebar size antialiases into a grey smudge.
 - **Panel layout via `dsh-panel-dock`** (optional, **strongly recommended**). With the dock installed, the card is a real panel: it defaults to the left sidebar, the dock owns its geometry, and the panel can move to the right column, split, float, and remember its position across reloads.
@@ -38,7 +38,7 @@ The plugin is not affiliated with OpenAI or DeepSeek. It uses your existing Code
 Install the release tarball through DSH's plugin manager:
 
 ```text
-https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.11.0.tar.gz
+https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.11.1.tar.gz
 ```
 
 After installation, add/keep the `codex-advisor` bundle and restart DSH if the Host requests it. A client-bundle change may require a full DSH quit/reopen or a page reload; the Codex tab and sidebar card appear after the client bundle is reloaded.
@@ -48,7 +48,7 @@ After installation, add/keep the `codex-advisor` bundle and restart DSH if the H
 ### Web / CLI profile
 
 ```powershell
-dsh plugin --profile <profile> add https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.11.0.tar.gz
+dsh plugin --profile <profile> add https://github.com/Awenforever/dsh-codex-advisor/archive/refs/tags/v0.11.1.tar.gz
 ```
 
 Then restart that DSH profile. For the app-managed `desktop` profile, use the app's plugin manager instead of editing the profile by hand.

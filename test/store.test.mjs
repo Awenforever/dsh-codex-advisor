@@ -5,6 +5,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { AdvisorStore } from '../lib/store.mjs';
 
+test('the last known quota survives a reload so the border can draw', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'advisor-store-'));
+  const first = new AdvisorStore({ dir });
+  first.load();
+  first.setQuota({ at: 1234567890, value: { primary: { usedPercent: 10, windowDurationMins: 300 } } });
+  const second = new AdvisorStore({ dir });
+  second.load();
+  const stored = second.readQuota();
+  assert.equal(stored.at, 1234567890);
+  assert.equal(stored.value.primary.usedPercent, 10);
+});
+
 test('bind, record turn, digest brief, reload', () => {
   const dir = mkdtempSync(join(tmpdir(), 'advisor-store-'));
   const store = new AdvisorStore({ dir, digestBytes: 2048 });
