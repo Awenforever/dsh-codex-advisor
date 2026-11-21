@@ -1278,10 +1278,6 @@ window.__ModuleLoader__.load({
     // One rounded border, two arcs. Short clockwise arc (top centre -> bottom
     // right) is the five-hour window; the long counter-clockwise arc to the same
     // corner is the weekly one. The asymmetry is the semantics, so no legend.
-    function cornerRadius(width, height, radius, stroke) {
-      return Math.max(0, Math.min(radius, (width - stroke) / 2, (height - stroke) / 2));
-    }
-
     function quotaArcPaths(width, height, radius, stroke) {
       const inset = stroke / 2;
       const right = width - stroke;
@@ -1320,6 +1316,7 @@ window.__ModuleLoader__.load({
           fiveHour: 'qa-f-' + quotaGradientSeq,
         };
       }
+      if (weekly === null && fiveHour === null) return null;
       const ids = idsRef.current;
       const stroke = 1.5;
       const paths = quotaArcPaths(width, height, 7, stroke);
@@ -1339,13 +1336,6 @@ window.__ModuleLoader__.load({
           });
         }));
       }
-      const track = {
-        fill: 'none',
-        stroke: mixColor('var(--dsw-alias-label-secondary)', 30, 'transparent'),
-        strokeWidth: stroke,
-        pathLength: 1,
-        strokeDasharray: '0.014 0.014',
-      };
       function fill(d, fraction, id) {
         return h('path', {
           d: d,
@@ -1367,16 +1357,8 @@ window.__ModuleLoader__.load({
         h('defs', null,
           gradient(ids.weekly, QUOTA_STOPS.weekly, width / 2),
           gradient(ids.fiveHour, QUOTA_STOPS.fiveHour, width)),
-        h('path', Object.assign({ d: paths.weekly }, track)),
-        h('path', Object.assign({ d: paths.fiveHour }, track)),
         weekly === null ? null : fill(paths.weekly, weekly, ids.weekly),
-        fiveHour === null ? null : fill(paths.fiveHour, fiveHour, ids.fiveHour),
-        h('circle', {
-          cx: width - stroke,
-          cy: height - stroke - cornerRadius(width, height, 7, stroke),
-          r: 1.6,
-          fill: mixColor('var(--dsw-alias-label-secondary)', 45, 'transparent'),
-        }));
+        fiveHour === null ? null : fill(paths.fiveHour, fiveHour, ids.fiveHour));
     }
 
     const PREFS_MODELS = ['', 'astra', 'sol', 'terra', 'luna'];
