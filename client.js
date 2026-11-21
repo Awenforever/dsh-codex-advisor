@@ -1365,7 +1365,7 @@ window.__ModuleLoader__.load({
         style: { position: 'absolute', inset: 0, display: 'block', pointerEvents: 'none' },
       },
         h('defs', null,
-          gradient(ids.weekly, QUOTA_STOPS.weekly, 0),
+          gradient(ids.weekly, QUOTA_STOPS.weekly, width / 2),
           gradient(ids.fiveHour, QUOTA_STOPS.fiveHour, width)),
         h('path', Object.assign({ d: paths.weekly }, track)),
         h('path', Object.assign({ d: paths.fiveHour }, track)),
