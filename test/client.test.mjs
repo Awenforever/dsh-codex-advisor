@@ -86,6 +86,10 @@ test('client follows DSH theme tokens instead of a fixed light palette', () => {
   assert.match(source, /QUOTA_STOPS/);
   // The gauge has a 300-weight ramp for the dark theme and follows live switches.
   assert.match(source, /data-ds-dark-theme/);
+  // Dock side follows subscribe() when the dock exposes it; the 1 Hz poll is only a
+  // fallback and must not run while the window is hidden.
+  assert.match(source, /dock\.subscribe\(apply\)/);
+  assert.match(source, /document\.hidden/);
   assert.match(source, /function useDarkTheme/);
   assert.match(source, /pathLength: 1/);
   // Approval, stop, and model/effort controls.

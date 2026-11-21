@@ -1171,16 +1171,34 @@ window.__ModuleLoader__.load({
       }
     }
 
-    // dsh-panel-dock has no change subscription yet, so a side changed from its
-    // own UI would otherwise leave this glyph pointing the wrong way.
+    // The glyph must follow a side changed from dsh-panel-dock's own UI. Newer
+    // releases expose subscribe(); our pin (0.4.0) does not, so fall back to a
+    // 1 Hz poll there -- and never poll while the window is hidden.
     function useDockSide() {
       const [side, setSide] = React.useState(readDockSide);
-      React.useEffect(() => {
-        const timer = setInterval(() => {
+      React.useEffect(function () {
+        function apply() {
           const next = readDockSide();
-          setSide((previous) => (previous === next ? previous : next));
+          setSide(function (previous) { return previous === next ? previous : next; });
+        }
+        const dock = panelDockApi();
+        if (dock && typeof dock.subscribe === 'function') {
+          let unsubscribe = null;
+          try {
+            unsubscribe = dock.subscribe(apply);
+          } catch { /* fall through to the polling fallback */ }
+          if (typeof unsubscribe === 'function') {
+            apply();
+            return function () {
+              try { unsubscribe(); } catch { /* the dock is already gone */ }
+            };
+          }
+        }
+        const timer = setInterval(function () {
+          if (typeof document !== 'undefined' && document.hidden) return;
+          apply();
         }, 1000);
-        return () => clearInterval(timer);
+        return function () { clearInterval(timer); };
       }, []);
       return [side, setSide];
     }
