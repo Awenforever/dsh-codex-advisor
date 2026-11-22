@@ -1317,7 +1317,11 @@ window.__ModuleLoader__.load({
         const observer = new ResizeObserver(measure);
         observer.observe(node);
         measure();
-        return function () { observer.disconnect(); };
+        window.addEventListener('resize', measure);
+        return function () {
+          observer.disconnect();
+          window.removeEventListener('resize', measure);
+        };
       }, [ref]);
       return size;
     }
@@ -1391,16 +1395,18 @@ window.__ModuleLoader__.load({
           stroke: 'url(#' + id + ')',
           strokeWidth: stroke,
           strokeLinecap: 'round',
+          'vector-effect': 'non-scaling-stroke',
           pathLength: 1,
           strokeDasharray: fraction + ' 2',
         });
       }
       return h('svg', {
         'aria-hidden': true,
-        width: width,
-        height: height,
+        width: '100%',
+        height: '100%',
         viewBox: '0 0 ' + width + ' ' + height,
-        style: { position: 'absolute', inset: 0, display: 'block', pointerEvents: 'none' },
+        preserveAspectRatio: 'none',
+        style: { position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', pointerEvents: 'none', overflow: 'visible' },
       },
         h('defs', null,
           gradient(ids.weekly, palette.weekly, width / 2),
@@ -1499,7 +1505,13 @@ window.__ModuleLoader__.load({
         'data-codex-advisor-answer': '',
         style: { position: 'relative', minWidth: 0, borderRadius: 7, background: props.background },
       },
-        size ? h(QuotaBorder, { quota: props.quota, width: size.width, height: size.height, t: props.t, dark: dark }) : null,
+        h(QuotaBorder, {
+          quota: props.quota,
+          width: size && size.width > 80 ? size.width : 386,
+          height: size && size.height > 40 ? size.height : 86,
+          t: props.t,
+          dark: dark,
+        }),
         h('div', { style: { position: 'relative', minWidth: 0, padding: '6px 8px 7px' } },
           h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 } },
             props.label,
