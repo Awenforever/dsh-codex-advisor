@@ -1335,11 +1335,14 @@ window.__ModuleLoader__.load({
       const bottom = height - stroke;
       const r = Math.max(0, Math.min(radius, right / 2, bottom / 2));
       const cx = width / 2;
+      const midX = right - r + r * Math.SQRT1_2;
+      const midY = bottom - r + r * Math.SQRT1_2;
       const fiveHour = [
         'M', cx, ' ', inset,
         ' H', right - r,
         ' A', r, ' ', r, ' 0 0 1 ', right, ' ', inset + r,
         ' V', bottom - r,
+        ' A', r, ' ', r, ' 0 0 1 ', midX, ' ', midY,
       ].join('');
       const weekly = [
         'M', cx, ' ', inset,
@@ -1348,7 +1351,7 @@ window.__ModuleLoader__.load({
         ' V', bottom - r,
         ' A', r, ' ', r, ' 0 0 0 ', inset + r, ' ', bottom,
         ' H', right - r,
-        ' A', r, ' ', r, ' 0 0 0 ', right, ' ', bottom - r,
+        ' A', r, ' ', r, ' 0 0 0 ', midX, ' ', midY,
       ].join('');
       return { fiveHour: fiveHour, weekly: weekly };
     }

@@ -174,12 +174,15 @@ test('client registers, renders, and resolves split-pane session focus', () => {
   const hooks = global.window.__codexAdvisorTest;
   assert.ok(hooks);
   const arcs = hooks.quotaArcPaths(240, 64, 7, 1.5);
-  // Both arcs start at the top-edge centre; the short one turns once, the long
-  // one turns three times before they meet at the bottom-right corner.
+  // Both arcs start at the top-edge centre and finish at the 45-degree midpoint
+  // of the bottom-right rounded corner (the five-hour arc wraps that corner on
+  // its way there).
   assert.ok(arcs.fiveHour.startsWith('M120 0.75'));
   assert.ok(arcs.weekly.startsWith('M120 0.75'));
-  assert.equal((arcs.fiveHour.match(/A/g) || []).length, 1);
+  assert.equal((arcs.fiveHour.match(/A/g) || []).length, 2);
   assert.equal((arcs.weekly.match(/A/g) || []).length, 3);
+  const endOf = (d) => d.trim().split(/\s+/).slice(-2).join(' ');
+  assert.equal(endOf(arcs.fiveHour), endOf(arcs.weekly), 'both arcs must end at the same corner midpoint');
   assert.equal(hooks.quotaFill({ known: true, remainingPercent: 62 }), 0.62);
   assert.equal(hooks.quotaFill({ known: false, remainingPercent: 62 }), null);
   assert.equal(hooks.quotaFill({ known: true, remainingPercent: 140 }), 1);
